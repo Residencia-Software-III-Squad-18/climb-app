@@ -1,16 +1,35 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState, useEffect } from "react";
+import { AnimatedBackground } from "@/components/login/AnimatedBackground";
+import { FloatingPanels } from "@/components/login/FloatingPanels";
+import { LoginForm } from "@/components/login/LoginForm";
+import { ThemeToggle } from "@/components/login/ThemeToggle";
 
-// IMPORTANT: Fully REPLACE this with your own code
-const PlaceholderIndex = () => {
-  // PLACEHOLDER: Replace this entire return statement with the user's app.
-  // The inline background color is intentionally not part of the design system.
+const Index = () => {
+  const [isDark, setIsDark] = useState(true);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", isDark);
+  }, [isDark]);
+
   return (
-    <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: '#fcfbf8' }}>
-      <img data-lovable-blank-page-placeholder="REMOVE_THIS" src="/placeholder.svg" alt="Your app will live here!" />
+    <div className="relative min-h-screen bg-background overflow-hidden transition-colors duration-500">
+      <AnimatedBackground />
+      <FloatingPanels />
+
+      <div className="relative z-10 min-h-screen flex items-center px-6 md:px-12 lg:px-20">
+        <div className="w-full max-w-7xl mx-auto">
+          <div className="grid lg:grid-cols-12 gap-8 items-center">
+            {/* Form area - offset left for asymmetry */}
+            <div className="lg:col-span-5 lg:col-start-2">
+              <LoginForm />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <ThemeToggle isDark={isDark} toggle={() => setIsDark(!isDark)} />
     </div>
   );
 };
-
-const Index = PlaceholderIndex;
 
 export default Index;

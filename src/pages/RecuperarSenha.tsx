@@ -1,18 +1,22 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, ArrowRight, Moon, Sun } from "lucide-react";
 import { Link } from "react-router-dom";
 import ClimbLogo from "@/components/login/ClimbLogo";
-import { useTheme } from "@/hooks/use-theme";
 
 const RecuperarSenha = () => {
-  const { isDark, setIsDark } = useTheme();
+  const [isDark, setIsDark] = useState(true);
   const [email, setEmail] = useState("");
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
 
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", isDark);
+  }, [isDark]);
+
   return (
     <div className="relative min-h-screen bg-background text-foreground transition-colors duration-500 overflow-hidden">
+      {/* Noise texture */}
       <div
         className="fixed inset-0 pointer-events-none opacity-[0.015] dark:opacity-[0.03]"
         style={{
@@ -22,28 +26,25 @@ const RecuperarSenha = () => {
         }}
       />
 
+      {/* Ambient gradients */}
       <motion.div
         className="fixed top-[-25%] right-[-15%] w-[800px] h-[800px] rounded-full pointer-events-none"
         style={{ background: "radial-gradient(circle, hsl(var(--accent) / 0.06) 0%, transparent 60%)" }}
         animate={{ scale: [1, 1.05, 1], opacity: [0.6, 1, 0.6] }}
         transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
       />
-      <motion.div
-        className="fixed bottom-[-25%] left-[-10%] w-[600px] h-[600px] rounded-full pointer-events-none"
-        style={{ background: "radial-gradient(circle, hsl(var(--primary) / 0.04) 0%, transparent 60%)" }}
-        animate={{ scale: [1, 1.08, 1], opacity: [0.5, 0.8, 0.5] }}
-        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
-      />
 
+      {/* Grid pattern */}
       <div
-        className="fixed inset-0 pointer-events-none opacity-[0.01] dark:opacity-[0.02]"
+        className="fixed inset-0 pointer-events-none opacity-[0.02] dark:opacity-[0.04]"
         style={{
-          backgroundImage: `linear-gradient(hsl(var(--foreground) / 0.42) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--foreground) / 0.42) 1px, transparent 1px)`,
-          backgroundSize: "72px 72px",
+          backgroundImage: `linear-gradient(hsl(var(--foreground)) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--foreground)) 1px, transparent 1px)`,
+          backgroundSize: "60px 60px",
         }}
       />
 
       <div className="relative z-10 min-h-screen grid grid-rows-[auto_1fr_auto]">
+        {/* Header */}
         <header className="flex items-center justify-between px-6 md:px-10 lg:px-14 py-5">
           <ClimbLogo className="h-4 text-foreground" />
           <motion.button
@@ -67,6 +68,7 @@ const RecuperarSenha = () => {
           </motion.button>
         </header>
 
+        {/* Main */}
         <main className="flex items-center justify-center px-6 md:px-10 lg:px-14">
           <div className="w-full max-w-sm">
             <motion.div
@@ -91,10 +93,8 @@ const RecuperarSenha = () => {
                     exit={{ opacity: 0, y: -12 }}
                     transition={{ duration: 0.4 }}
                   >
-                    <h1 className="text-[1.8rem] md:text-[2rem] font-semibold tracking-[-0.03em] text-foreground leading-[1.08] mb-3">
-                      Recuperar
-                      <br />
-                      <span className="text-accent">senha</span>
+                    <h1 className="text-[1.8rem] md:text-[2rem] font-black tracking-[-0.03em] text-foreground leading-[1.1] mb-3">
+                      Recuperar senha
                     </h1>
                     <p className="text-sm text-muted-foreground/60 leading-relaxed mb-10 max-w-[320px]">
                       Informe o e-mail corporativo associado à sua conta para receber o link de redefinição.
@@ -174,10 +174,8 @@ const RecuperarSenha = () => {
                       </motion.svg>
                     </motion.div>
 
-                    <h1 className="text-[1.6rem] font-semibold tracking-[-0.03em] text-foreground leading-[1.08] mb-3">
-                      Link
-                      <br />
-                      <span className="text-accent">enviado</span>
+                    <h1 className="text-[1.6rem] font-black tracking-[-0.03em] text-foreground leading-[1.1] mb-3">
+                      Link enviado
                     </h1>
                     <p className="text-sm text-muted-foreground/60 leading-relaxed mb-8 max-w-[320px]">
                       Se o e-mail <span className="text-foreground font-medium">{email}</span> estiver cadastrado, você receberá as instruções de redefinição em instantes.
@@ -197,6 +195,7 @@ const RecuperarSenha = () => {
           </div>
         </main>
 
+        {/* Footer */}
         <footer className="flex items-center justify-between px-6 md:px-10 lg:px-14 py-5">
           <span className="text-[9px] text-muted-foreground/25 tracking-wide">
             © 2026 Climb Investimentos Independentes

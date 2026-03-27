@@ -10,7 +10,7 @@
       "@/components/*": ["./src/components/*"],
       "@/hooks/*": ["./src/hooks/*"]
     },
-    "types": ["vite/client"],
+    "types": ["vite/client", "node"],
     "skipLibCheck": true,
 
     /* Bundler mode */

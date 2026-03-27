@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 220" role="img" aria-label="Logo Climb">
+  <title>Climb</title>
+  <rect width="100%" height="100%" fill="none"/>
+
+  <text x="20" y="165"
+        font-family="Arial Rounded MT Bold, Nunito, Poppins, Montserrat, Arial, sans-serif"
+        font-size="180"
+        font-weight="700"
+        letter-spacing="-6"
+        fill="#0F1B2D">climb</text>
+
+  <g transform="translate(470,32)" fill="#76C9C5">
+    <rect x="0" y="0" width="42" height="22" rx="2"/>
+    <rect x="0" y="58" width="118" height="22" rx="2"/>
+    <rect x="0" y="116" width="188" height="22" rx="2"/>
+  </g>
+</svg>

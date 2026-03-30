@@ -20,9 +20,35 @@ body {
 .light {
   background-color: #ffffff;
   color: #0f1b2d;
+  --accent-color: #2BBFA4;
+  --border-color: #e0e0e0;
+  --muted-text: rgba(15, 27, 45, 0.4);
 }
 
 .dark {
   background-color: #0e1822;
   color: #ffffff;
+  --accent-color: #2BBFA4;
+  --border-color: #2a3f4f;
+  --muted-text: rgba(255, 255, 255, 0.4);
+}
+
+.dark input {
+  background-color: #1a2532;
+  color: #ffffff;
+  border-color: #2a3f4f;
+}
+
+.dark input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.dark input:focus {
+  border-color: #2BBFA4;
+}
+
+.light input {
+  background-color: #ffffff;
+  color: #0f1b2d;
+  border-color: #CAC4D0;
 }

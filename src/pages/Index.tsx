@@ -10,6 +10,7 @@ const Index = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const navigate = useNavigate();
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
   useEffect(() => {

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Eye, EyeOff, ArrowRight, Moon, Sun } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import ClimbLogo from "@/components/login/ClimbLogo";
 import BackgroundEffects from "@/components/login/BackgroundEffects";
 
@@ -10,6 +10,7 @@ const Index = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const navigate = useNavigate();
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
   useEffect(() => {
@@ -96,7 +97,7 @@ const Index = () => {
 
             {/* Form */}
             <motion.form
-              onSubmit={(e) => e.preventDefault()}
+              onSubmit={(e) => { e.preventDefault(); navigate("/dashboard"); }}
               className="space-y-5"
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}

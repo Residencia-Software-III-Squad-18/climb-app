@@ -97,7 +97,7 @@ const Index = () => {
 
             {/* Form */}
             <motion.form
-              onSubmit={(e) => e.preventDefault()}
+              onSubmit={(e) => { e.preventDefault(); navigate("/dashboard"); }}
               className="space-y-5"
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}

@@ -871,16 +871,8 @@ const Dashboard = () => {
               <motion.div className="xl:col-span-3 rounded-xl border border-border/25 bg-card/40 backdrop-blur-sm overflow-hidden" variants={itemVariants}>
                 <SectionHeader
                   title="Empresas"
+                  subtitle="Pendentes — documentação em análise"
                   onMaximize={() => { setSelectedCompany(null); setMaxEmpresas(true); }}
-                  extra={
-                    <div className="flex items-center gap-2">
-                      {([["todos", "Todos"], ["pendentes", "Pendentes"], ["clientes", "Clientes"]] as const).map(([val, label]) => (
-                        <button key={val} onClick={() => setEmpresaFilter(val)} className={`h-7 px-2.5 rounded-md text-[10px] font-medium transition-all duration-200 ${empresaFilter === val ? "bg-accent/10 text-accent border border-accent/20" : "text-muted-foreground/50 hover:text-foreground hover:bg-muted/20"}`}>
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  }
                 />
                 {/* Search */}
                 <div className="px-5 py-3 border-b border-border/10">

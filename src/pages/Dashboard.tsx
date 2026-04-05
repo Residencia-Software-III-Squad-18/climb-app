@@ -51,12 +51,12 @@ interface PipelineRow {
 
 const pipelineData: PipelineRow[] = [
   {
-    empresa: "Gorillaz", tipo: "BPO", responsavel: "Raul", status: "Ativo", badge: "active", data: "30.01",
+    empresa: "Nova Capital", tipo: "BPO", responsavel: "Raul", status: "Ativo", badge: "active", data: "30.01",
     isCliente: true,
     contratoInfo: { negociado: "Gestão financeira e fiscal completa", validade: "30/01/2027", valor: "R$ 18.500/mês", ultimoContato: "28/02/2026" },
   },
   {
-    empresa: "Jotamune", tipo: "M&A", responsavel: "Raul", status: "Análise", badge: "analysis", data: "20.01",
+    empresa: "Apex Ventures", tipo: "M&A", responsavel: "Raul", status: "Análise", badge: "analysis", data: "20.01",
     isCliente: false, ultimoContato: "15/02/2026",
     documentos: [
       { name: "Contrato Social", status: "validated" },
@@ -75,7 +75,7 @@ const pipelineData: PipelineRow[] = [
     ],
   } as any,
   {
-    empresa: "Bjork", tipo: "Outro", responsavel: "Raul", status: "Proposta", badge: "proposal", data: "28.01",
+    empresa: "Horizon Group", tipo: "Outro", responsavel: "Raul", status: "Proposta", badge: "proposal", data: "28.01",
     isCliente: false, ultimoContato: "22/02/2026",
     documentos: [
       { name: "Contrato Social", status: "pending" },
@@ -92,17 +92,17 @@ const pipelineData: PipelineRow[] = [
     ],
   } as any,
   {
-    empresa: "Smiths", tipo: "BPO", responsavel: "Raul", status: "P. Direta", badge: "direct", data: "20.01",
+    empresa: "Solare Investimentos", tipo: "BPO", responsavel: "Raul", status: "P. Direta", badge: "direct", data: "20.01",
     isCliente: true,
     contratoInfo: { negociado: "Consultoria tributária e planejamento fiscal", validade: "15/06/2027", valor: "R$ 12.000/mês", ultimoContato: "10/03/2026" },
   },
   {
-    empresa: "Radiohead", tipo: "M&A", responsavel: "Raul", status: "Ativo", badge: "active", data: "30.01",
+    empresa: "Meridian Partners", tipo: "M&A", responsavel: "Raul", status: "Ativo", badge: "active", data: "30.01",
     isCliente: true,
     contratoInfo: { negociado: "Assessoria em fusões e aquisições", validade: "01/12/2026", valor: "R$ 45.000/projeto", ultimoContato: "05/03/2026" },
   },
   {
-    empresa: "Portishead", tipo: "BPO", responsavel: "Raul", status: "Análise", badge: "analysis", data: "14.02",
+    empresa: "Vértice Consultoria", tipo: "BPO", responsavel: "Raul", status: "Análise", badge: "analysis", data: "14.02",
     isCliente: false, ultimoContato: "01/03/2026",
     documentos: [
       { name: "Contrato Social", status: "validated" },
@@ -120,7 +120,7 @@ const pipelineData: PipelineRow[] = [
     ],
   } as any,
   {
-    empresa: "Massive Attack", tipo: "M&A", responsavel: "Raul", status: "Ativo", badge: "active", data: "05.03",
+    empresa: "Atlas Participações", tipo: "M&A", responsavel: "Raul", status: "Ativo", badge: "active", data: "05.03",
     isCliente: true,
     contratoInfo: { negociado: "Reestruturação societária", validade: "20/09/2027", valor: "R$ 32.000/mês", ultimoContato: "12/03/2026" },
   },

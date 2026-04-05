@@ -165,17 +165,17 @@ interface Meeting {
 }
 
 const meetingsData: Record<number, Meeting[]> = {
-  3: [{ title: "Reunião de onboarding", time: "09:00", empresa: "Jotamune", local: "Sala 3" }],
-  7: [{ title: "Alinhamento financeiro", time: "14:00", empresa: "Gorillaz", local: "Google Meet" }],
+  3: [{ title: "Reunião de onboarding", time: "09:00", empresa: "Apex Ventures", local: "Sala 3" }],
+  7: [{ title: "Alinhamento financeiro", time: "14:00", empresa: "Nova Capital", local: "Google Meet" }],
   11: [
-    { title: "Due diligence review", time: "10:30", empresa: "Radiohead", local: "Sala 1" },
-    { title: "Revisão de contrato", time: "15:00", empresa: "Smiths", local: "Zoom" },
+    { title: "Due diligence review", time: "10:30", empresa: "Meridian Partners", local: "Sala 1" },
+    { title: "Revisão de contrato", time: "15:00", empresa: "Solare Investimentos", local: "Zoom" },
   ],
-  13: [{ title: "Apresentação de proposta", time: "11:00", empresa: "Bjork", local: "Sala 2" }],
-  14: [{ title: "Análise documental", time: "09:30", empresa: "Portishead", local: "Sala 1" }],
-  19: [{ title: "Comitê de investimentos", time: "14:00", empresa: "Massive Attack", local: "Auditório" }],
-  21: [{ title: "Follow-up comercial", time: "16:00", empresa: "Jotamune", local: "Google Meet" }],
-  25: [{ title: "Revisão trimestral", time: "10:00", empresa: "Gorillaz", local: "Sala 3" }],
+  13: [{ title: "Apresentação de proposta", time: "11:00", empresa: "Horizon Group", local: "Sala 2" }],
+  14: [{ title: "Análise documental", time: "09:30", empresa: "Vértice Consultoria", local: "Sala 1" }],
+  19: [{ title: "Comitê de investimentos", time: "14:00", empresa: "Atlas Participações", local: "Auditório" }],
+  21: [{ title: "Follow-up comercial", time: "16:00", empresa: "Apex Ventures", local: "Google Meet" }],
+  25: [{ title: "Revisão trimestral", time: "10:00", empresa: "Nova Capital", local: "Sala 3" }],
   28: [{ title: "Fechamento mensal", time: "09:00", empresa: "Climb Interno", local: "Auditório" }],
 };
 

@@ -306,7 +306,7 @@ const Dashboard = () => {
   const [selectedCompany, setSelectedCompany] = useState<PipelineRow | null>(null);
 
   // Empresas filter
-  const [empresaFilter, setEmpresaFilter] = useState<"todos" | "pendentes" | "clientes">("todos");
+  const [empresaFilter, setEmpresaFilter] = useState<"todos" | "pendentes">("pendentes");
   const [empresaSearch, setEmpresaSearch] = useState("");
 
   // Calendar

@@ -893,18 +893,15 @@ const Dashboard = () => {
                       transition={{ delay: i * 0.04 }}
                     >
                       <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${row.isCliente ? "bg-accent/10 text-accent" : "bg-primary/10 text-primary"}`}>
-                          {row.isCliente ? <Building2 className="w-4 h-4" /> : <Briefcase className="w-4 h-4" />}
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-primary/10 text-primary">
+                          <Briefcase className="w-4 h-4" />
                         </div>
                         <div>
                           <p className="text-[13px] font-medium text-foreground group-hover:text-accent transition-colors">{row.empresa}</p>
-                          <p className="text-[10px] text-muted-foreground/40">{row.tipo} · {row.responsavel} · Contato: {row.isCliente ? row.contratoInfo?.ultimoContato : (row as any).ultimoContato || "—"}</p>
+                          <p className="text-[10px] text-muted-foreground/40">{row.tipo} · {row.responsavel} · Contato: {(row as any).ultimoContato || "—"}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className={`text-[9px] font-medium px-2 py-0.5 rounded-full ${row.isCliente ? "bg-accent/10 text-accent" : "bg-primary/10 text-primary"}`}>
-                          {row.isCliente ? "Cliente" : "Pendente"}
-                        </span>
                         <span className={`inline-flex items-center h-6 px-2.5 rounded-md text-[10px] font-medium border ${badgeStyles[row.badge]}`}>{row.status}</span>
                       </div>
                     </motion.div>

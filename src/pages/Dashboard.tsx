@@ -882,7 +882,7 @@ const Dashboard = () => {
                   </div>
                 </div>
                 {/* Mini empresa list */}
-                <div className="divide-y divide-border/10 max-h-[320px] overflow-y-auto">
+                <div className="divide-y divide-border/10 max-h-[320px] overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-muted-foreground/20 [&::-webkit-scrollbar-thumb]:rounded-full">
                   {filteredEmpresas.map((row, i) => (
                     <motion.div
                       key={row.empresa}

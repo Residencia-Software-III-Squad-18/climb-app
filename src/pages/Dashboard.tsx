@@ -984,13 +984,10 @@ const Dashboard = () => {
         ) : (
           <div>
             <div className="flex items-center gap-3 mb-4">
-              {([["todos", "Todos"], ["pendentes", "Pendentes"], ["clientes", "Clientes"]] as const).map(([val, label]) => (
-                <button key={val} onClick={() => setEmpresaFilter(val)} className={`h-7 px-2.5 rounded-md text-[10px] font-medium transition-all ${empresaFilter === val ? "bg-accent/10 text-accent border border-accent/20" : "text-muted-foreground/50 hover:text-foreground hover:bg-muted/20"}`}>{label}</button>
-              ))}
-              <div className="flex-1 ml-2">
+              <div className="flex-1">
                 <div className="flex items-center gap-2 h-8 px-3 rounded-lg border border-border/20 bg-background/40">
                   <Search className="w-3.5 h-3.5 text-muted-foreground/30" />
-                  <input type="text" placeholder="Buscar empresa..." value={empresaSearch} onChange={e => setEmpresaSearch(e.target.value)} className="flex-1 bg-transparent text-[12px] outline-none placeholder:text-muted-foreground/25 text-foreground" />
+                  <input type="text" placeholder="Buscar empresa pendente..." value={empresaSearch} onChange={e => setEmpresaSearch(e.target.value)} className="flex-1 bg-transparent text-[12px] outline-none placeholder:text-muted-foreground/25 text-foreground" />
                 </div>
               </div>
             </div>

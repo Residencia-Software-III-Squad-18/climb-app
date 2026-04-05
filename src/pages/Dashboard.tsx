@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Home, FileText, Calendar as CalendarIcon, Shield, Building2, Settings,
@@ -15,12 +16,12 @@ import ClimbLogo from "@/components/login/ClimbLogo";
    ══════════════════════════════════════════════════ */
 
 const navItems = [
-  { icon: Home, label: "Home", active: true },
-  { icon: FileText, label: "Contratos", active: false },
-  { icon: CalendarIcon, label: "Agenda", active: false },
-  { icon: Shield, label: "Permissões", active: false },
-  { icon: Building2, label: "Empresas", active: false },
-  { icon: Settings, label: "Configurações", active: false },
+  { icon: Home, label: "Home", path: "/dashboard" },
+  { icon: FileText, label: "Contratos", path: "/dashboard" },
+  { icon: CalendarIcon, label: "Agenda", path: "/agenda" },
+  { icon: Shield, label: "Permissões", path: "/dashboard" },
+  { icon: Building2, label: "Empresas", path: "/dashboard" },
+  { icon: Settings, label: "Configurações", path: "/dashboard" },
 ];
 
 const stats = [
@@ -51,12 +52,12 @@ interface PipelineRow {
 
 const pipelineData: PipelineRow[] = [
   {
-    empresa: "Gorillaz", tipo: "BPO", responsavel: "Raul", status: "Ativo", badge: "active", data: "30.01",
+    empresa: "Nova Capital", tipo: "BPO", responsavel: "Raul", status: "Ativo", badge: "active", data: "30.01",
     isCliente: true,
     contratoInfo: { negociado: "Gestão financeira e fiscal completa", validade: "30/01/2027", valor: "R$ 18.500/mês", ultimoContato: "28/02/2026" },
   },
   {
-    empresa: "Jotamune", tipo: "M&A", responsavel: "Raul", status: "Análise", badge: "analysis", data: "20.01",
+    empresa: "Apex Ventures", tipo: "M&A", responsavel: "Raul", status: "Análise", badge: "analysis", data: "20.01",
     isCliente: false, ultimoContato: "15/02/2026",
     documentos: [
       { name: "Contrato Social", status: "validated" },
@@ -75,7 +76,7 @@ const pipelineData: PipelineRow[] = [
     ],
   } as any,
   {
-    empresa: "Bjork", tipo: "Outro", responsavel: "Raul", status: "Proposta", badge: "proposal", data: "28.01",
+    empresa: "Horizon Group", tipo: "Outro", responsavel: "Raul", status: "Proposta", badge: "proposal", data: "28.01",
     isCliente: false, ultimoContato: "22/02/2026",
     documentos: [
       { name: "Contrato Social", status: "pending" },
@@ -92,17 +93,17 @@ const pipelineData: PipelineRow[] = [
     ],
   } as any,
   {
-    empresa: "Smiths", tipo: "BPO", responsavel: "Raul", status: "P. Direta", badge: "direct", data: "20.01",
+    empresa: "Solare Investimentos", tipo: "BPO", responsavel: "Raul", status: "P. Direta", badge: "direct", data: "20.01",
     isCliente: true,
     contratoInfo: { negociado: "Consultoria tributária e planejamento fiscal", validade: "15/06/2027", valor: "R$ 12.000/mês", ultimoContato: "10/03/2026" },
   },
   {
-    empresa: "Radiohead", tipo: "M&A", responsavel: "Raul", status: "Ativo", badge: "active", data: "30.01",
+    empresa: "Meridian Partners", tipo: "M&A", responsavel: "Raul", status: "Ativo", badge: "active", data: "30.01",
     isCliente: true,
     contratoInfo: { negociado: "Assessoria em fusões e aquisições", validade: "01/12/2026", valor: "R$ 45.000/projeto", ultimoContato: "05/03/2026" },
   },
   {
-    empresa: "Portishead", tipo: "BPO", responsavel: "Raul", status: "Análise", badge: "analysis", data: "14.02",
+    empresa: "Vértice Consultoria", tipo: "BPO", responsavel: "Raul", status: "Análise", badge: "analysis", data: "14.02",
     isCliente: false, ultimoContato: "01/03/2026",
     documentos: [
       { name: "Contrato Social", status: "validated" },
@@ -120,7 +121,7 @@ const pipelineData: PipelineRow[] = [
     ],
   } as any,
   {
-    empresa: "Massive Attack", tipo: "M&A", responsavel: "Raul", status: "Ativo", badge: "active", data: "05.03",
+    empresa: "Atlas Participações", tipo: "M&A", responsavel: "Raul", status: "Ativo", badge: "active", data: "05.03",
     isCliente: true,
     contratoInfo: { negociado: "Reestruturação societária", validade: "20/09/2027", valor: "R$ 32.000/mês", ultimoContato: "12/03/2026" },
   },
@@ -128,16 +129,16 @@ const pipelineData: PipelineRow[] = [
 
 /* ── Notifications ── */
 const allNotifications = [
-  { text: "Contrato da Tech Solutions aguardando aprovação do analista", time: "há 15 minutos", icon: Clock, type: "warning" },
-  { text: "Contrato Hamilton vence em 30 dias — revisar renovação", time: "há 2 horas", icon: AlertCircle, type: "alert" },
-  { text: "Fernandes Boyden enviou o Balanço da Empresa para validação", time: "ontem", icon: CheckCircle2, type: "success" },
-  { text: "Reunião com Grupo Meridian agendada para 12/03 às 14h", time: "ontem, 13:20", icon: CalendarIcon, type: "info" },
-  { text: "Novo documento recebido da Portishead para análise", time: "2 dias atrás", icon: FileText, type: "info" },
-  { text: "Proposta da Bjork expirou — reenviar ou cancelar", time: "3 dias atrás", icon: AlertCircle, type: "alert" },
+  { text: "Contrato da Nova Capital aguardando aprovação do analista", time: "há 15 minutos", icon: Clock, type: "warning" },
+  { text: "Contrato Meridian Partners vence em 30 dias — revisar renovação", time: "há 2 horas", icon: AlertCircle, type: "alert" },
+  { text: "Vértice Consultoria enviou o Balanço da Empresa para validação", time: "ontem", icon: CheckCircle2, type: "success" },
+  { text: "Reunião com Atlas Participações agendada para 12/03 às 14h", time: "ontem, 13:20", icon: CalendarIcon, type: "info" },
+  { text: "Novo documento recebido da Vértice Consultoria para análise", time: "2 dias atrás", icon: FileText, type: "info" },
+  { text: "Proposta da Horizon Group expirou — reenviar ou cancelar", time: "3 dias atrás", icon: AlertCircle, type: "alert" },
   { text: "Relatório mensal de compliance gerado automaticamente", time: "4 dias atrás", icon: CheckCircle2, type: "success" },
-  { text: "Massive Attack solicitou alteração contratual", time: "5 dias atrás", icon: Clock, type: "warning" },
-  { text: "Reunião com Jotamune confirmada para 18/03 às 10h", time: "5 dias atrás", icon: CalendarIcon, type: "info" },
-  { text: "Smiths enviou comprovante de pagamento", time: "1 semana atrás", icon: CheckCircle2, type: "success" },
+  { text: "Atlas Participações solicitou alteração contratual", time: "5 dias atrás", icon: Clock, type: "warning" },
+  { text: "Reunião com Apex Ventures confirmada para 18/03 às 10h", time: "5 dias atrás", icon: CalendarIcon, type: "info" },
+  { text: "Solare Investimentos enviou comprovante de pagamento", time: "1 semana atrás", icon: CheckCircle2, type: "success" },
 ];
 
 /* ── Pipeline stages ── */
@@ -165,17 +166,17 @@ interface Meeting {
 }
 
 const meetingsData: Record<number, Meeting[]> = {
-  3: [{ title: "Reunião de onboarding", time: "09:00", empresa: "Jotamune", local: "Sala 3" }],
-  7: [{ title: "Alinhamento financeiro", time: "14:00", empresa: "Gorillaz", local: "Google Meet" }],
+  3: [{ title: "Reunião de onboarding", time: "09:00", empresa: "Apex Ventures", local: "Sala 3" }],
+  7: [{ title: "Alinhamento financeiro", time: "14:00", empresa: "Nova Capital", local: "Google Meet" }],
   11: [
-    { title: "Due diligence review", time: "10:30", empresa: "Radiohead", local: "Sala 1" },
-    { title: "Revisão de contrato", time: "15:00", empresa: "Smiths", local: "Zoom" },
+    { title: "Due diligence review", time: "10:30", empresa: "Meridian Partners", local: "Sala 1" },
+    { title: "Revisão de contrato", time: "15:00", empresa: "Solare Investimentos", local: "Zoom" },
   ],
-  13: [{ title: "Apresentação de proposta", time: "11:00", empresa: "Bjork", local: "Sala 2" }],
-  14: [{ title: "Análise documental", time: "09:30", empresa: "Portishead", local: "Sala 1" }],
-  19: [{ title: "Comitê de investimentos", time: "14:00", empresa: "Massive Attack", local: "Auditório" }],
-  21: [{ title: "Follow-up comercial", time: "16:00", empresa: "Jotamune", local: "Google Meet" }],
-  25: [{ title: "Revisão trimestral", time: "10:00", empresa: "Gorillaz", local: "Sala 3" }],
+  13: [{ title: "Apresentação de proposta", time: "11:00", empresa: "Horizon Group", local: "Sala 2" }],
+  14: [{ title: "Análise documental", time: "09:30", empresa: "Vértice Consultoria", local: "Sala 1" }],
+  19: [{ title: "Comitê de investimentos", time: "14:00", empresa: "Atlas Participações", local: "Auditório" }],
+  21: [{ title: "Follow-up comercial", time: "16:00", empresa: "Apex Ventures", local: "Google Meet" }],
+  25: [{ title: "Revisão trimestral", time: "10:00", empresa: "Nova Capital", local: "Sala 3" }],
   28: [{ title: "Fechamento mensal", time: "09:00", empresa: "Climb Interno", local: "Auditório" }],
 };
 
@@ -293,6 +294,7 @@ const Dashboard = () => {
   const [isDark, setIsDark] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeNav, setActiveNav] = useState(0);
+  const navigate = useNavigate();
 
   // Maximize states
   const [maxPipeline, setMaxPipeline] = useState(false);
@@ -306,7 +308,7 @@ const Dashboard = () => {
   const [selectedCompany, setSelectedCompany] = useState<PipelineRow | null>(null);
 
   // Empresas filter
-  const [empresaFilter, setEmpresaFilter] = useState<"todos" | "pendentes" | "clientes">("todos");
+  const [empresaFilter, setEmpresaFilter] = useState<"todos" | "pendentes">("pendentes");
   const [empresaSearch, setEmpresaSearch] = useState("");
 
   // Calendar
@@ -338,13 +340,11 @@ const Dashboard = () => {
   // Filtered empresas
   const filteredEmpresas = useMemo(() => {
     return pipelineData.filter(row => {
+      if (row.isCliente) return false; // Only show pending companies
       const matchSearch = row.empresa.toLowerCase().includes(empresaSearch.toLowerCase());
-      const matchFilter = empresaFilter === "todos" ||
-        (empresaFilter === "clientes" && row.isCliente) ||
-        (empresaFilter === "pendentes" && !row.isCliente);
-      return matchSearch && matchFilter;
+      return matchSearch;
     });
-  }, [empresaSearch, empresaFilter]);
+  }, [empresaSearch]);
 
   const nextMeeting = getNextMeeting();
 
@@ -716,7 +716,7 @@ const Dashboard = () => {
             {navItems.map((item, i) => (
               <motion.button
                 key={item.label}
-                onClick={() => setActiveNav(i)}
+                onClick={() => { setActiveNav(i); navigate(item.path); }}
                 className={`w-full flex items-center gap-3 rounded-lg transition-all duration-200 group relative ${sidebarCollapsed ? "justify-center px-2 py-2.5" : "px-3 py-2.5"} ${
                   activeNav === i ? "bg-accent/10 text-accent" : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
                 }`}
@@ -873,16 +873,8 @@ const Dashboard = () => {
               <motion.div className="xl:col-span-3 rounded-xl border border-border/25 bg-card/40 backdrop-blur-sm overflow-hidden" variants={itemVariants}>
                 <SectionHeader
                   title="Empresas"
+                  subtitle="Pendentes — documentação em análise"
                   onMaximize={() => { setSelectedCompany(null); setMaxEmpresas(true); }}
-                  extra={
-                    <div className="flex items-center gap-2">
-                      {([["todos", "Todos"], ["pendentes", "Pendentes"], ["clientes", "Clientes"]] as const).map(([val, label]) => (
-                        <button key={val} onClick={() => setEmpresaFilter(val)} className={`h-7 px-2.5 rounded-md text-[10px] font-medium transition-all duration-200 ${empresaFilter === val ? "bg-accent/10 text-accent border border-accent/20" : "text-muted-foreground/50 hover:text-foreground hover:bg-muted/20"}`}>
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  }
                 />
                 {/* Search */}
                 <div className="px-5 py-3 border-b border-border/10">
@@ -892,7 +884,7 @@ const Dashboard = () => {
                   </div>
                 </div>
                 {/* Mini empresa list */}
-                <div className="divide-y divide-border/10 max-h-[320px] overflow-y-auto">
+                <div className="divide-y divide-border/10 max-h-[320px] overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-muted-foreground/20 [&::-webkit-scrollbar-thumb]:rounded-full">
                   {filteredEmpresas.map((row, i) => (
                     <motion.div
                       key={row.empresa}
@@ -903,18 +895,15 @@ const Dashboard = () => {
                       transition={{ delay: i * 0.04 }}
                     >
                       <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${row.isCliente ? "bg-accent/10 text-accent" : "bg-primary/10 text-primary"}`}>
-                          {row.isCliente ? <Building2 className="w-4 h-4" /> : <Briefcase className="w-4 h-4" />}
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-primary/10 text-primary">
+                          <Briefcase className="w-4 h-4" />
                         </div>
                         <div>
                           <p className="text-[13px] font-medium text-foreground group-hover:text-accent transition-colors">{row.empresa}</p>
-                          <p className="text-[10px] text-muted-foreground/40">{row.tipo} · {row.responsavel} · Contato: {row.isCliente ? row.contratoInfo?.ultimoContato : (row as any).ultimoContato || "—"}</p>
+                          <p className="text-[10px] text-muted-foreground/40">{row.tipo} · {row.responsavel} · Contato: {(row as any).ultimoContato || "—"}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className={`text-[9px] font-medium px-2 py-0.5 rounded-full ${row.isCliente ? "bg-accent/10 text-accent" : "bg-primary/10 text-primary"}`}>
-                          {row.isCliente ? "Cliente" : "Pendente"}
-                        </span>
                         <span className={`inline-flex items-center h-6 px-2.5 rounded-md text-[10px] font-medium border ${badgeStyles[row.badge]}`}>{row.status}</span>
                       </div>
                     </motion.div>
@@ -994,13 +983,10 @@ const Dashboard = () => {
         ) : (
           <div>
             <div className="flex items-center gap-3 mb-4">
-              {([["todos", "Todos"], ["pendentes", "Pendentes"], ["clientes", "Clientes"]] as const).map(([val, label]) => (
-                <button key={val} onClick={() => setEmpresaFilter(val)} className={`h-7 px-2.5 rounded-md text-[10px] font-medium transition-all ${empresaFilter === val ? "bg-accent/10 text-accent border border-accent/20" : "text-muted-foreground/50 hover:text-foreground hover:bg-muted/20"}`}>{label}</button>
-              ))}
-              <div className="flex-1 ml-2">
+              <div className="flex-1">
                 <div className="flex items-center gap-2 h-8 px-3 rounded-lg border border-border/20 bg-background/40">
                   <Search className="w-3.5 h-3.5 text-muted-foreground/30" />
-                  <input type="text" placeholder="Buscar empresa..." value={empresaSearch} onChange={e => setEmpresaSearch(e.target.value)} className="flex-1 bg-transparent text-[12px] outline-none placeholder:text-muted-foreground/25 text-foreground" />
+                  <input type="text" placeholder="Buscar empresa pendente..." value={empresaSearch} onChange={e => setEmpresaSearch(e.target.value)} className="flex-1 bg-transparent text-[12px] outline-none placeholder:text-muted-foreground/25 text-foreground" />
                 </div>
               </div>
             </div>

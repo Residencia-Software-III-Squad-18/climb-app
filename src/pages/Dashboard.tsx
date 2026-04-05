@@ -294,6 +294,7 @@ const Dashboard = () => {
   const [isDark, setIsDark] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeNav, setActiveNav] = useState(0);
+  const navigate = useNavigate();
 
   // Maximize states
   const [maxPipeline, setMaxPipeline] = useState(false);

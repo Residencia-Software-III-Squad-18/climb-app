@@ -338,13 +338,11 @@ const Dashboard = () => {
   // Filtered empresas
   const filteredEmpresas = useMemo(() => {
     return pipelineData.filter(row => {
+      if (row.isCliente) return false; // Only show pending companies
       const matchSearch = row.empresa.toLowerCase().includes(empresaSearch.toLowerCase());
-      const matchFilter = empresaFilter === "todos" ||
-        (empresaFilter === "clientes" && row.isCliente) ||
-        (empresaFilter === "pendentes" && !row.isCliente);
-      return matchSearch && matchFilter;
+      return matchSearch;
     });
-  }, [empresaSearch, empresaFilter]);
+  }, [empresaSearch]);
 
   const nextMeeting = getNextMeeting();
 

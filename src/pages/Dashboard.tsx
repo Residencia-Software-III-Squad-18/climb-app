@@ -16,12 +16,12 @@ import ClimbLogo from "@/components/login/ClimbLogo";
    ══════════════════════════════════════════════════ */
 
 const navItems = [
-  { icon: Home, label: "Home", active: true },
-  { icon: FileText, label: "Contratos", active: false },
-  { icon: CalendarIcon, label: "Agenda", active: false },
-  { icon: Shield, label: "Permissões", active: false },
-  { icon: Building2, label: "Empresas", active: false },
-  { icon: Settings, label: "Configurações", active: false },
+  { icon: Home, label: "Home", path: "/dashboard" },
+  { icon: FileText, label: "Contratos", path: "/dashboard" },
+  { icon: CalendarIcon, label: "Agenda", path: "/agenda" },
+  { icon: Shield, label: "Permissões", path: "/dashboard" },
+  { icon: Building2, label: "Empresas", path: "/dashboard" },
+  { icon: Settings, label: "Configurações", path: "/dashboard" },
 ];
 
 const stats = [

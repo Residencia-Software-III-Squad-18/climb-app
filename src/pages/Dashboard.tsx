@@ -128,16 +128,16 @@ const pipelineData: PipelineRow[] = [
 
 /* ── Notifications ── */
 const allNotifications = [
-  { text: "Contrato da Tech Solutions aguardando aprovação do analista", time: "há 15 minutos", icon: Clock, type: "warning" },
-  { text: "Contrato Hamilton vence em 30 dias — revisar renovação", time: "há 2 horas", icon: AlertCircle, type: "alert" },
-  { text: "Fernandes Boyden enviou o Balanço da Empresa para validação", time: "ontem", icon: CheckCircle2, type: "success" },
-  { text: "Reunião com Grupo Meridian agendada para 12/03 às 14h", time: "ontem, 13:20", icon: CalendarIcon, type: "info" },
-  { text: "Novo documento recebido da Portishead para análise", time: "2 dias atrás", icon: FileText, type: "info" },
-  { text: "Proposta da Bjork expirou — reenviar ou cancelar", time: "3 dias atrás", icon: AlertCircle, type: "alert" },
+  { text: "Contrato da Nova Capital aguardando aprovação do analista", time: "há 15 minutos", icon: Clock, type: "warning" },
+  { text: "Contrato Meridian Partners vence em 30 dias — revisar renovação", time: "há 2 horas", icon: AlertCircle, type: "alert" },
+  { text: "Vértice Consultoria enviou o Balanço da Empresa para validação", time: "ontem", icon: CheckCircle2, type: "success" },
+  { text: "Reunião com Atlas Participações agendada para 12/03 às 14h", time: "ontem, 13:20", icon: CalendarIcon, type: "info" },
+  { text: "Novo documento recebido da Vértice Consultoria para análise", time: "2 dias atrás", icon: FileText, type: "info" },
+  { text: "Proposta da Horizon Group expirou — reenviar ou cancelar", time: "3 dias atrás", icon: AlertCircle, type: "alert" },
   { text: "Relatório mensal de compliance gerado automaticamente", time: "4 dias atrás", icon: CheckCircle2, type: "success" },
-  { text: "Massive Attack solicitou alteração contratual", time: "5 dias atrás", icon: Clock, type: "warning" },
-  { text: "Reunião com Jotamune confirmada para 18/03 às 10h", time: "5 dias atrás", icon: CalendarIcon, type: "info" },
-  { text: "Smiths enviou comprovante de pagamento", time: "1 semana atrás", icon: CheckCircle2, type: "success" },
+  { text: "Atlas Participações solicitou alteração contratual", time: "5 dias atrás", icon: Clock, type: "warning" },
+  { text: "Reunião com Apex Ventures confirmada para 18/03 às 10h", time: "5 dias atrás", icon: CalendarIcon, type: "info" },
+  { text: "Solare Investimentos enviou comprovante de pagamento", time: "1 semana atrás", icon: CheckCircle2, type: "success" },
 ];
 
 /* ── Pipeline stages ── */

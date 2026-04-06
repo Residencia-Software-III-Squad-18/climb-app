@@ -376,15 +376,21 @@ const Dashboard = () => {
       <div className="px-5 py-3 border-b border-border/10">
         <div className="flex items-center gap-1">
           {stages.map((stage, i) => (
-            <div key={stage.label} className="flex-1">
+            <motion.div
+              key={stage.label}
+              className="flex-1 cursor-pointer group"
+              onClick={() => setSelectedStage(stage)}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[9px] text-muted-foreground/40 font-medium">{stage.label}</span>
-                <span className="text-[9px] text-muted-foreground/30 font-mono">{stage.count}</span>
+                <span className="text-[9px] text-muted-foreground/40 font-medium group-hover:text-accent transition-colors">{stage.label}</span>
+                <span className="text-[9px] text-muted-foreground/30 font-mono group-hover:text-accent transition-colors">{stage.count}</span>
               </div>
               <motion.div className="h-1 rounded-full bg-muted/30 overflow-hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 + i * 0.05 }}>
-                <motion.div className="h-full rounded-full bg-accent/40" initial={{ width: 0 }} animate={{ width: `${(stage.count / 54) * 100}%` }} transition={{ duration: 0.8, delay: 0.4 + i * 0.1, ease: "easeOut" }} />
+                <motion.div className="h-full rounded-full bg-accent/40 group-hover:bg-accent/60 transition-colors" initial={{ width: 0 }} animate={{ width: `${(stage.count / 54) * 100}%` }} transition={{ duration: 0.8, delay: 0.4 + i * 0.1, ease: "easeOut" }} />
               </motion.div>
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>

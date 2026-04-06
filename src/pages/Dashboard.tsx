@@ -19,8 +19,8 @@ const navItems = [
   { icon: Home, label: "Home", path: "/dashboard" },
   { icon: FileText, label: "Contratos", path: "/dashboard" },
   { icon: CalendarIcon, label: "Agenda", path: "/agenda" },
-  { icon: Shield, label: "Permissões", path: "/dashboard" },
-  { icon: Building2, label: "Empresas", path: "/dashboard" },
+  { icon: Shield, label: "Permissões", path: "/permissoes" },
+  { icon: Building2, label: "Empresas", path: "/empresas" },
   { icon: Settings, label: "Configurações", path: "/dashboard" },
 ];
 
@@ -143,11 +143,11 @@ const allNotifications = [
 
 /* ── Pipeline stages ── */
 const stages = [
-  { label: "Proposta", count: 8 },
-  { label: "Análise", count: 5 },
-  { label: "Contrato", count: 11 },
-  { label: "Ativo", count: 24 },
-  { label: "Encerr.", count: 54 },
+  { label: "Proposta", count: 8, docs: ["Proposta Nova Capital.pdf", "Proposta Horizon Group.pdf", "Proposta Apex v2.pdf", "Proposta Meridian.pdf", "Proposta Solare.pdf", "Proposta Atlas.pdf", "Proposta Vértice.pdf", "Proposta Alpha.pdf"] },
+  { label: "Análise", count: 5, docs: ["Análise Apex Ventures.pdf", "Análise Vértice Consultoria.pdf", "Análise Horizon Group.pdf", "Relatório Due Diligence.pdf", "Parecer Jurídico.pdf"] },
+  { label: "Contrato", count: 11, docs: ["Contrato Nova Capital.pdf", "Contrato Solare.pdf", "Contrato Meridian.pdf", "Contrato Atlas.pdf", "Aditivo Nova Capital.pdf", "Aditivo Solare.pdf", "Contrato Vértice.pdf", "Contrato Horizon.pdf", "Contrato Apex.pdf", "Contrato Alpha.pdf", "Contrato Beta.pdf"] },
+  { label: "Ativo", count: 24, docs: ["Relatório Mensal NC.pdf", "Relatório Mensal Solare.pdf", "Relatório Meridian.pdf", "Relatório Atlas.pdf"] },
+  { label: "Encerr.", count: 54, docs: ["Encerramento Projeto Alpha.pdf", "Encerramento Projeto Beta.pdf"] },
 ];
 
 const badgeStyles: Record<string, string> = {
@@ -314,6 +314,7 @@ const Dashboard = () => {
   // Calendar
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [showAddMeeting, setShowAddMeeting] = useState(false);
+  const [selectedStage, setSelectedStage] = useState<{ label: string; docs: string[] } | null>(null);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDark);
@@ -375,15 +376,21 @@ const Dashboard = () => {
       <div className="px-5 py-3 border-b border-border/10">
         <div className="flex items-center gap-1">
           {stages.map((stage, i) => (
-            <div key={stage.label} className="flex-1">
+            <motion.div
+              key={stage.label}
+              className="flex-1 cursor-pointer group"
+              onClick={() => setSelectedStage(stage)}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[9px] text-muted-foreground/40 font-medium">{stage.label}</span>
-                <span className="text-[9px] text-muted-foreground/30 font-mono">{stage.count}</span>
+                <span className="text-[9px] text-muted-foreground/40 font-medium group-hover:text-accent transition-colors">{stage.label}</span>
+                <span className="text-[9px] text-muted-foreground/30 font-mono group-hover:text-accent transition-colors">{stage.count}</span>
               </div>
               <motion.div className="h-1 rounded-full bg-muted/30 overflow-hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 + i * 0.05 }}>
-                <motion.div className="h-full rounded-full bg-accent/40" initial={{ width: 0 }} animate={{ width: `${(stage.count / 54) * 100}%` }} transition={{ duration: 0.8, delay: 0.4 + i * 0.1, ease: "easeOut" }} />
+                <motion.div className="h-full rounded-full bg-accent/40 group-hover:bg-accent/60 transition-colors" initial={{ width: 0 }} animate={{ width: `${(stage.count / 54) * 100}%` }} transition={{ duration: 0.8, delay: 0.4 + i * 0.1, ease: "easeOut" }} />
               </motion.div>
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>
@@ -552,26 +559,22 @@ const Dashboard = () => {
 
   /* ── Calendar renderer ── */
   const renderCalendar = (expanded = false) => (
-    <div className={expanded ? "" : ""}>
-      <div className="flex items-center justify-between mb-4">
-        <h4 className="text-[13px] font-semibold text-foreground">Março 2026</h4>
-        <div className="flex items-center gap-1">
-          <button className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors">
-            <ChevronLeft className="w-3.5 h-3.5" />
-          </button>
-          <button className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors">
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="text-[12px] font-semibold text-foreground">Março 2026</h4>
+        <div className="flex items-center gap-0.5">
+          <button className="w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors"><ChevronLeft className="w-3 h-3" /></button>
+          <button className="w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors"><ChevronRight className="w-3 h-3" /></button>
         </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-1 mb-1">
+      <div className="grid grid-cols-7 gap-0.5 mb-0.5">
         {["D", "S", "T", "Q", "Q", "S", "S"].map((d, i) => (
-          <div key={i} className="text-center text-[9px] font-medium text-muted-foreground/30 py-1">{d}</div>
+          <div key={i} className="text-center text-[8px] font-medium text-muted-foreground/30 py-0.5">{d}</div>
         ))}
       </div>
 
-      <div className={`grid grid-cols-7 ${expanded ? "gap-2" : "gap-1"}`}>
+      <div className={`grid grid-cols-7 ${expanded ? "gap-1.5" : "gap-0.5"}`}>
         {calendarDays().map((day, i) => {
           const hasMeeting = day !== null && highlightedDays.includes(day);
           const isToday = day === 15;
@@ -579,23 +582,19 @@ const Dashboard = () => {
           return (
             <motion.div
               key={i}
-              className={`${expanded ? "aspect-square min-h-[48px]" : "aspect-square"} rounded-md flex flex-col items-center justify-center text-[11px] transition-all duration-200 cursor-pointer relative ${
+              className={`${expanded ? "aspect-square min-h-[40px]" : "aspect-square"} rounded flex flex-col items-center justify-center text-[10px] transition-all cursor-pointer relative ${
                 day === null ? "" :
-                isSelected ? "bg-accent text-accent-foreground font-semibold ring-2 ring-accent/30" :
+                isSelected ? "bg-accent text-accent-foreground font-semibold ring-1 ring-accent/30" :
                 isToday ? "bg-accent text-accent-foreground font-semibold" :
                 hasMeeting ? "bg-accent/15 text-accent font-semibold hover:bg-accent/25" :
-                "text-foreground/60 hover:bg-muted/20"
+                "text-foreground/50 hover:bg-muted/20"
               }`}
-              whileHover={day ? { scale: expanded ? 1.05 : 1.1 } : undefined}
+              whileHover={day ? { scale: expanded ? 1.05 : 1.08 } : undefined}
               whileTap={day ? { scale: 0.95 } : undefined}
-              onClick={() => {
-                if (day && hasMeeting) setSelectedDay(day === selectedDay ? null : day);
-              }}
+              onClick={() => { if (day && hasMeeting) setSelectedDay(day === selectedDay ? null : day); }}
             >
               {day}
-              {hasMeeting && !isToday && !isSelected && (
-                <div className="absolute bottom-1 w-1 h-1 rounded-full bg-accent" />
-              )}
+              {hasMeeting && !isToday && !isSelected && <div className="absolute bottom-0.5 w-1 h-1 rounded-full bg-accent" />}
             </motion.div>
           );
         })}
@@ -1029,6 +1028,33 @@ const Dashboard = () => {
       <MaximizeModal isOpen={maxCalendar} onClose={() => { setMaxCalendar(false); setShowAddMeeting(false); }} title="Calendário — Março 2026">
         {renderCalendar(true)}
       </MaximizeModal>
+
+      {/* Stage docs modal */}
+      <AnimatePresence>
+        {selectedStage && (
+          <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div className="absolute inset-0 bg-background/80 backdrop-blur-md" onClick={() => setSelectedStage(null)} />
+            <motion.div className="relative z-10 w-full max-w-md rounded-2xl border border-border/30 bg-card/95 backdrop-blur-xl shadow-2xl overflow-hidden" initial={{ scale: 0.92, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.92, opacity: 0, y: 20 }}>
+              <div className="flex items-center justify-between p-5 border-b border-border/20">
+                <div>
+                  <h2 className="text-[16px] font-semibold text-foreground">{selectedStage.label}</h2>
+                  <p className="text-[11px] text-muted-foreground/40">{selectedStage.docs.length} documentos</p>
+                </div>
+                <motion.button onClick={() => setSelectedStage(null)} className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/20" whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}><X className="w-4 h-4" /></motion.button>
+              </div>
+              <div className="p-5 space-y-1.5 max-h-[400px] overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-muted-foreground/20 [&::-webkit-scrollbar-thumb]:rounded-full">
+                {selectedStage.docs.map((doc, i) => (
+                  <motion.div key={doc} className="flex items-center gap-3 rounded-lg border border-border/15 bg-background/50 px-4 py-3 hover:border-accent/20 transition-colors cursor-pointer group" initial={{ opacity: 0, x: -5 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.03 }}>
+                    <FileText className="w-4 h-4 text-muted-foreground/40 group-hover:text-accent transition-colors" />
+                    <span className="text-[12px] text-foreground/70 group-hover:text-foreground transition-colors flex-1">{doc}</span>
+                    <Download className="w-3.5 h-3.5 text-muted-foreground/20 group-hover:text-accent transition-colors" />
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

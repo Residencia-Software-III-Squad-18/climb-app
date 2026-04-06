@@ -559,26 +559,22 @@ const Dashboard = () => {
 
   /* ── Calendar renderer ── */
   const renderCalendar = (expanded = false) => (
-    <div className={expanded ? "" : ""}>
-      <div className="flex items-center justify-between mb-4">
-        <h4 className="text-[13px] font-semibold text-foreground">Março 2026</h4>
-        <div className="flex items-center gap-1">
-          <button className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors">
-            <ChevronLeft className="w-3.5 h-3.5" />
-          </button>
-          <button className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors">
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="text-[12px] font-semibold text-foreground">Março 2026</h4>
+        <div className="flex items-center gap-0.5">
+          <button className="w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors"><ChevronLeft className="w-3 h-3" /></button>
+          <button className="w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors"><ChevronRight className="w-3 h-3" /></button>
         </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-1 mb-1">
+      <div className="grid grid-cols-7 gap-0.5 mb-0.5">
         {["D", "S", "T", "Q", "Q", "S", "S"].map((d, i) => (
-          <div key={i} className="text-center text-[9px] font-medium text-muted-foreground/30 py-1">{d}</div>
+          <div key={i} className="text-center text-[8px] font-medium text-muted-foreground/30 py-0.5">{d}</div>
         ))}
       </div>
 
-      <div className={`grid grid-cols-7 ${expanded ? "gap-2" : "gap-1"}`}>
+      <div className={`grid grid-cols-7 ${expanded ? "gap-1.5" : "gap-0.5"}`}>
         {calendarDays().map((day, i) => {
           const hasMeeting = day !== null && highlightedDays.includes(day);
           const isToday = day === 15;
@@ -586,23 +582,19 @@ const Dashboard = () => {
           return (
             <motion.div
               key={i}
-              className={`${expanded ? "aspect-square min-h-[48px]" : "aspect-square"} rounded-md flex flex-col items-center justify-center text-[11px] transition-all duration-200 cursor-pointer relative ${
+              className={`${expanded ? "aspect-square min-h-[40px]" : "aspect-square"} rounded flex flex-col items-center justify-center text-[10px] transition-all cursor-pointer relative ${
                 day === null ? "" :
-                isSelected ? "bg-accent text-accent-foreground font-semibold ring-2 ring-accent/30" :
+                isSelected ? "bg-accent text-accent-foreground font-semibold ring-1 ring-accent/30" :
                 isToday ? "bg-accent text-accent-foreground font-semibold" :
                 hasMeeting ? "bg-accent/15 text-accent font-semibold hover:bg-accent/25" :
-                "text-foreground/60 hover:bg-muted/20"
+                "text-foreground/50 hover:bg-muted/20"
               }`}
-              whileHover={day ? { scale: expanded ? 1.05 : 1.1 } : undefined}
+              whileHover={day ? { scale: expanded ? 1.05 : 1.08 } : undefined}
               whileTap={day ? { scale: 0.95 } : undefined}
-              onClick={() => {
-                if (day && hasMeeting) setSelectedDay(day === selectedDay ? null : day);
-              }}
+              onClick={() => { if (day && hasMeeting) setSelectedDay(day === selectedDay ? null : day); }}
             >
               {day}
-              {hasMeeting && !isToday && !isSelected && (
-                <div className="absolute bottom-1 w-1 h-1 rounded-full bg-accent" />
-              )}
+              {hasMeeting && !isToday && !isSelected && <div className="absolute bottom-0.5 w-1 h-1 rounded-full bg-accent" />}
             </motion.div>
           );
         })}

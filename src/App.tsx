@@ -7,6 +7,8 @@ import Index from "./pages/Index.tsx";
 import Dashboard from "./pages/Dashboard.tsx";
 import RecuperarSenha from "./pages/RecuperarSenha.tsx";
 import Agenda from "./pages/Agenda.tsx";
+import Permissoes from "./pages/Permissoes.tsx";
+import Empresas from "./pages/Empresas.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -22,6 +24,8 @@ const App = () => (
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/recuperar-senha" element={<RecuperarSenha />} />
           <Route path="/agenda" element={<Agenda />} />
+          <Route path="/permissoes" element={<Permissoes />} />
+          <Route path="/empresas" element={<Empresas />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

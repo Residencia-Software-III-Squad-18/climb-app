@@ -19,8 +19,8 @@ const navItems = [
   { icon: Home, label: "Home", path: "/dashboard" },
   { icon: FileText, label: "Contratos", path: "/dashboard" },
   { icon: CalendarIcon, label: "Agenda", path: "/agenda" },
-  { icon: Shield, label: "Permissões", path: "/dashboard" },
-  { icon: Building2, label: "Empresas", path: "/dashboard" },
+  { icon: Shield, label: "Permissões", path: "/permissoes" },
+  { icon: Building2, label: "Empresas", path: "/empresas" },
   { icon: Settings, label: "Configurações", path: "/dashboard" },
 ];
 
@@ -143,11 +143,11 @@ const allNotifications = [
 
 /* ── Pipeline stages ── */
 const stages = [
-  { label: "Proposta", count: 8 },
-  { label: "Análise", count: 5 },
-  { label: "Contrato", count: 11 },
-  { label: "Ativo", count: 24 },
-  { label: "Encerr.", count: 54 },
+  { label: "Proposta", count: 8, docs: ["Proposta Nova Capital.pdf", "Proposta Horizon Group.pdf", "Proposta Apex v2.pdf", "Proposta Meridian.pdf", "Proposta Solare.pdf", "Proposta Atlas.pdf", "Proposta Vértice.pdf", "Proposta Alpha.pdf"] },
+  { label: "Análise", count: 5, docs: ["Análise Apex Ventures.pdf", "Análise Vértice Consultoria.pdf", "Análise Horizon Group.pdf", "Relatório Due Diligence.pdf", "Parecer Jurídico.pdf"] },
+  { label: "Contrato", count: 11, docs: ["Contrato Nova Capital.pdf", "Contrato Solare.pdf", "Contrato Meridian.pdf", "Contrato Atlas.pdf", "Aditivo Nova Capital.pdf", "Aditivo Solare.pdf", "Contrato Vértice.pdf", "Contrato Horizon.pdf", "Contrato Apex.pdf", "Contrato Alpha.pdf", "Contrato Beta.pdf"] },
+  { label: "Ativo", count: 24, docs: ["Relatório Mensal NC.pdf", "Relatório Mensal Solare.pdf", "Relatório Meridian.pdf", "Relatório Atlas.pdf"] },
+  { label: "Encerr.", count: 54, docs: ["Encerramento Projeto Alpha.pdf", "Encerramento Projeto Beta.pdf"] },
 ];
 
 const badgeStyles: Record<string, string> = {

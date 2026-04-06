@@ -314,6 +314,7 @@ const Dashboard = () => {
   // Calendar
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [showAddMeeting, setShowAddMeeting] = useState(false);
+  const [selectedStage, setSelectedStage] = useState<{ label: string; docs: string[] } | null>(null);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDark);

@@ -1028,6 +1028,33 @@ const Dashboard = () => {
       <MaximizeModal isOpen={maxCalendar} onClose={() => { setMaxCalendar(false); setShowAddMeeting(false); }} title="Calendário — Março 2026">
         {renderCalendar(true)}
       </MaximizeModal>
+
+      {/* Stage docs modal */}
+      <AnimatePresence>
+        {selectedStage && (
+          <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div className="absolute inset-0 bg-background/80 backdrop-blur-md" onClick={() => setSelectedStage(null)} />
+            <motion.div className="relative z-10 w-full max-w-md rounded-2xl border border-border/30 bg-card/95 backdrop-blur-xl shadow-2xl overflow-hidden" initial={{ scale: 0.92, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.92, opacity: 0, y: 20 }}>
+              <div className="flex items-center justify-between p-5 border-b border-border/20">
+                <div>
+                  <h2 className="text-[16px] font-semibold text-foreground">{selectedStage.label}</h2>
+                  <p className="text-[11px] text-muted-foreground/40">{selectedStage.docs.length} documentos</p>
+                </div>
+                <motion.button onClick={() => setSelectedStage(null)} className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/20" whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}><X className="w-4 h-4" /></motion.button>
+              </div>
+              <div className="p-5 space-y-1.5 max-h-[400px] overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-muted-foreground/20 [&::-webkit-scrollbar-thumb]:rounded-full">
+                {selectedStage.docs.map((doc, i) => (
+                  <motion.div key={doc} className="flex items-center gap-3 rounded-lg border border-border/15 bg-background/50 px-4 py-3 hover:border-accent/20 transition-colors cursor-pointer group" initial={{ opacity: 0, x: -5 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.03 }}>
+                    <FileText className="w-4 h-4 text-muted-foreground/40 group-hover:text-accent transition-colors" />
+                    <span className="text-[12px] text-foreground/70 group-hover:text-foreground transition-colors flex-1">{doc}</span>
+                    <Download className="w-3.5 h-3.5 text-muted-foreground/20 group-hover:text-accent transition-colors" />
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

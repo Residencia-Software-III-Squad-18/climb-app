@@ -3,24 +3,26 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Home, FileText, Calendar as CalendarIcon, Shield, Building2, Settings,
   LogOut, Sun, Moon, ChevronLeft, ChevronRight, Plus, Bell, Search,
-  Clock, MapPin, X, GripVertical, Video, Users as UsersIcon
+  Clock, MapPin, X, GripVertical, Video, Users as UsersIcon, List
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import ClimbLogo from "@/components/login/ClimbLogo";
 
 /* ══════════════════════════════════════════════════
-   DATA
+   NAV
    ══════════════════════════════════════════════════ */
-
 const navItems = [
   { icon: Home, label: "Home", path: "/dashboard" },
   { icon: FileText, label: "Contratos", path: "/dashboard" },
   { icon: CalendarIcon, label: "Agenda", path: "/agenda" },
-  { icon: Shield, label: "Permissões", path: "/dashboard" },
-  { icon: Building2, label: "Empresas", path: "/dashboard" },
+  { icon: Shield, label: "Permissões", path: "/permissoes" },
+  { icon: Building2, label: "Empresas", path: "/empresas" },
   { icon: Settings, label: "Configurações", path: "/dashboard" },
 ];
 
+/* ══════════════════════════════════════════════════
+   DATA
+   ══════════════════════════════════════════════════ */
 interface AgendaEvent {
   id: string;
   title: string;
@@ -41,27 +43,24 @@ interface KanbanCard {
   priority: "alta" | "media" | "baixa";
 }
 
-const weekEvents: Record<number, AgendaEvent[]> = {
-  0: [
-    { id: "1", title: "Reunião com Nova Capital", time: "09:00", endTime: "10:00", empresa: "Nova Capital", local: "Sala 3", type: "virtual", color: "accent" },
-    { id: "2", title: "Análise documental Alpha", time: "11:00", endTime: "12:00", empresa: "Apex Ventures", local: "Sala 1", type: "presencial", color: "primary" },
+/* Monthly events keyed by day-of-month for March 2026 */
+const monthEvents: Record<number, AgendaEvent[]> = {
+  2: [{ id: "m1", title: "Kickoff Projeto", time: "09:00", endTime: "10:00", empresa: "Nova Capital", local: "Google Meet", type: "virtual", color: "accent" }],
+  5: [{ id: "m2", title: "Treinamento Interno", time: "14:00", endTime: "16:00", empresa: "Climb Interno", local: "Auditório", type: "presencial", color: "primary" }],
+  6: [{ id: "m3", title: "Alinhamento Semanal", time: "10:00", endTime: "10:30", empresa: "Apex Ventures", local: "Zoom", type: "virtual", color: "accent" }],
+  9: [
+    { id: "m4", title: "Apresentação de Resultados", time: "16:00", endTime: "17:00", empresa: "Horizon Group", local: "Sala 2", type: "presencial", color: "primary" },
   ],
-  1: [
-    { id: "3", title: "Apresentação Horizon Group", time: "14:00", endTime: "15:30", empresa: "Horizon Group", local: "Google Meet", type: "virtual", color: "accent" },
-  ],
-  2: [
-    { id: "4", title: "Follow-up Vértice Consultoria", time: "10:00", endTime: "10:30", empresa: "Vértice Consultoria", local: "Zoom", type: "virtual", color: "accent" },
-  ],
-  3: [
-    { id: "5", title: "Revisão contrato Meridian", time: "16:00", endTime: "17:00", empresa: "Meridian Partners", local: "Sala 2", type: "presencial", color: "primary" },
-  ],
-  4: [
-    { id: "6", title: "Reunião de alinhamento", time: "09:00", endTime: "09:30", empresa: "Atlas Participações", local: "Zoom", type: "virtual", color: "accent" },
-    { id: "7", title: "Visita Solare Investimentos", time: "14:00", endTime: "16:00", empresa: "Solare Investimentos", local: "Escritório", type: "presencial", color: "primary" },
-  ],
+  10: [{ id: "m5", title: "Revisão de Contrato", time: "10:30", endTime: "11:30", empresa: "Meridian Partners", local: "Sala 1", type: "presencial", color: "primary" }],
+  13: [{ id: "m6", title: "Kickoff Q2", time: "09:00", endTime: "11:00", empresa: "Solare Investimentos", local: "Google Meet", type: "virtual", color: "accent" }],
+  16: [{ id: "m7", title: "Encerramento Sprint", time: "15:00", endTime: "15:30", empresa: "Climb Interno", local: "Zoom", type: "virtual", color: "accent" }],
+  19: [{ id: "m8", title: "Comitê de Investimentos", time: "14:00", endTime: "16:00", empresa: "Atlas Participações", local: "Auditório", type: "presencial", color: "primary" }],
+  21: [{ id: "m9", title: "Relatório Mensal", time: "11:00", endTime: "12:00", empresa: "Nova Capital", local: "Sala 3", type: "presencial", color: "primary" }],
+  25: [{ id: "m10", title: "Revisão Trimestral", time: "14:00", endTime: "15:00", empresa: "Vértice Consultoria", local: "Zoom", type: "virtual", color: "accent" }],
+  28: [{ id: "m11", title: "Fechamento Mensal", time: "09:00", endTime: "10:30", empresa: "Climb Interno", local: "Auditório", type: "presencial", color: "primary" }],
 };
 
-const kanbanColumns: { id: string; title: string; color: string }[] = [
+const kanbanColumns = [
   { id: "agendado", title: "Agendado", color: "accent" },
   { id: "confirmado", title: "Confirmado", color: "primary" },
   { id: "realizado", title: "Realizado", color: "accent" },
@@ -85,47 +84,50 @@ const initialKanbanCards: Record<string, KanbanCard[]> = {
   ],
 };
 
-const weekDays = ["SEG", "TER", "QUA", "QUI", "SEX"];
-const weekDates = [16, 17, 18, 19, 20];
+const DOW = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"];
+
+/* Build March 2026 calendar grid (March 1 is a Sunday → offset 0) */
+const buildCalendarGrid = () => {
+  const firstDayOfWeek = 0; // Sunday
+  const daysInMonth = 31;
+  const grid: (number | null)[] = [];
+  for (let i = 0; i < firstDayOfWeek; i++) grid.push(null);
+  for (let d = 1; d <= daysInMonth; d++) grid.push(d);
+  while (grid.length % 7 !== 0) grid.push(null);
+  return grid;
+};
 
 /* ══════════════════════════════════════════════════
    AGENDA PAGE
    ══════════════════════════════════════════════════ */
-
 const Agenda = () => {
   const [isDark, setIsDark] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [activeView, setActiveView] = useState<"semana" | "kanban">("semana");
+  const [activeView, setActiveView] = useState<"mes" | "semana" | "lista" | "kanban">("mes");
   const [kanbanCards, setKanbanCards] = useState(initialKanbanCards);
   const [showAddEvent, setShowAddEvent] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [draggedCard, setDraggedCard] = useState<{ card: KanbanCard; fromCol: string } | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const navigate = useNavigate();
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDark);
   }, [isDark]);
 
-  const handleDragStart = (card: KanbanCard, fromCol: string) => {
-    setDraggedCard({ card, fromCol });
-  };
+  const calendarGrid = useMemo(() => buildCalendarGrid(), []);
+  const eventDays = useMemo(() => new Set(Object.keys(monthEvents).map(Number)), []);
 
-  const handleDragOver = (e: React.DragEvent, colId: string) => {
-    e.preventDefault();
-    setDragOverCol(colId);
-  };
-
+  const handleDragStart = (card: KanbanCard, fromCol: string) => setDraggedCard({ card, fromCol });
+  const handleDragOver = (e: React.DragEvent, colId: string) => { e.preventDefault(); setDragOverCol(colId); };
   const handleDrop = (colId: string) => {
-    if (!draggedCard || draggedCard.fromCol === colId) {
-      setDraggedCard(null);
-      setDragOverCol(null);
-      return;
-    }
+    if (!draggedCard || draggedCard.fromCol === colId) { setDraggedCard(null); setDragOverCol(null); return; }
     setKanbanCards(prev => {
-      const newCards = { ...prev };
-      newCards[draggedCard.fromCol] = prev[draggedCard.fromCol].filter(c => c.id !== draggedCard.card.id);
-      newCards[colId] = [...prev[colId], draggedCard.card];
-      return newCards;
+      const n = { ...prev };
+      n[draggedCard.fromCol] = prev[draggedCard.fromCol].filter(c => c.id !== draggedCard.card.id);
+      n[colId] = [...prev[colId], draggedCard.card];
+      return n;
     });
     setDraggedCard(null);
     setDragOverCol(null);
@@ -137,41 +139,19 @@ const Agenda = () => {
     baixa: "bg-muted/30 text-muted-foreground border-border/20",
   };
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: { opacity: 1, transition: { staggerChildren: 0.06, delayChildren: 0.1 } },
-  };
-  const itemVariants = {
-    hidden: { opacity: 0, y: 16 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
-  };
+  const todayDay = 9; // simulate today = March 9
 
   return (
     <div className="relative min-h-screen bg-background text-foreground transition-colors duration-500 overflow-hidden">
       {/* Ambient background */}
       <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute inset-0" style={{
-          background: `
-            radial-gradient(ellipse 60% 50% at 0% 0%, hsl(var(--accent) / 0.04) 0%, transparent 50%),
-            radial-gradient(ellipse 50% 40% at 100% 100%, hsl(var(--primary) / 0.03) 0%, transparent 50%)
-          `,
-        }} />
-        <motion.div
-          className="absolute top-0 right-0 w-[600px] h-[600px] rounded-full"
-          style={{ background: "radial-gradient(circle, hsl(var(--accent) / 0.03) 0%, transparent 60%)", filter: "blur(80px)" }}
-          animate={{ opacity: [0.3, 0.6, 0.3], scale: [0.95, 1.05, 0.95] }}
-          transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
-        />
+        <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse 60% 50% at 0% 0%, hsl(var(--accent) / 0.04) 0%, transparent 50%), radial-gradient(ellipse 50% 40% at 100% 100%, hsl(var(--primary) / 0.03) 0%, transparent 50%)` }} />
+        <motion.div className="absolute top-0 right-0 w-[600px] h-[600px] rounded-full" style={{ background: "radial-gradient(circle, hsl(var(--accent) / 0.03) 0%, transparent 60%)", filter: "blur(80px)" }} animate={{ opacity: [0.3, 0.6, 0.3], scale: [0.95, 1.05, 0.95] }} transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }} />
       </div>
 
       <div className="relative z-10 flex min-h-screen">
         {/* ── Sidebar ── */}
-        <motion.aside
-          className={`fixed left-0 top-0 bottom-0 z-30 flex flex-col border-r border-border/30 bg-card/60 backdrop-blur-xl transition-all duration-300 ${sidebarCollapsed ? "w-[72px]" : "w-[220px]"}`}
-          initial={{ x: -20, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ duration: 0.5 }}
-        >
+        <motion.aside className={`fixed left-0 top-0 bottom-0 z-30 flex flex-col border-r border-border/30 bg-card/60 backdrop-blur-xl transition-all duration-300 ${sidebarCollapsed ? "w-[72px]" : "w-[220px]"}`} initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ duration: 0.5 }}>
           <div className={`flex items-center h-16 border-b border-border/20 ${sidebarCollapsed ? "justify-center px-2" : "px-5"}`}>
             {sidebarCollapsed ? (
               <motion.div className="w-7 h-7 rounded-lg bg-accent/10 flex items-center justify-center" whileHover={{ scale: 1.05 }}>
@@ -181,218 +161,278 @@ const Agenda = () => {
               <ClimbLogo className="h-[16px] text-foreground" />
             )}
           </div>
-
           <nav className="flex-1 py-4 px-2 space-y-1">
-            {navItems.map((item, i) => (
-              <motion.button
-                key={item.label}
-                onClick={() => navigate(item.path)}
-                className={`w-full flex items-center gap-3 rounded-lg transition-all duration-200 group relative ${sidebarCollapsed ? "justify-center px-2 py-2.5" : "px-3 py-2.5"} ${
-                  item.label === "Agenda" ? "bg-accent/10 text-accent" : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
-                }`}
-                whileHover={{ x: sidebarCollapsed ? 0 : 2 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                {item.label === "Agenda" && (
-                  <motion.div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-accent" layoutId="activeNav" transition={{ type: "spring", stiffness: 300, damping: 30 }} />
-                )}
+            {navItems.map((item) => (
+              <motion.button key={item.label} onClick={() => navigate(item.path)} className={`w-full flex items-center gap-3 rounded-lg transition-all duration-200 group relative ${sidebarCollapsed ? "justify-center px-2 py-2.5" : "px-3 py-2.5"} ${item.label === "Agenda" ? "bg-accent/10 text-accent" : "text-muted-foreground hover:text-foreground hover:bg-muted/30"}`} whileHover={{ x: sidebarCollapsed ? 0 : 2 }} whileTap={{ scale: 0.98 }}>
+                {item.label === "Agenda" && <motion.div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-accent" layoutId="activeNav" />}
                 <item.icon className="w-[18px] h-[18px] shrink-0" />
                 {!sidebarCollapsed && <span className="text-[13px] font-medium">{item.label}</span>}
               </motion.button>
             ))}
           </nav>
-
           <div className="border-t border-border/20 py-3 px-2 space-y-1">
-            <motion.button onClick={() => setIsDark(!isDark)} className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-all duration-200 ${sidebarCollapsed ? "justify-center" : ""}`} whileTap={{ scale: 0.98 }}>
+            <motion.button onClick={() => setIsDark(!isDark)} className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-all ${sidebarCollapsed ? "justify-center" : ""}`} whileTap={{ scale: 0.98 }}>
               <AnimatePresence mode="wait">
-                <motion.div key={isDark ? "sun" : "moon"} initial={{ opacity: 0, rotate: -30 }} animate={{ opacity: 1, rotate: 0 }} exit={{ opacity: 0, rotate: 30 }} transition={{ duration: 0.2 }}>
+                <motion.div key={isDark ? "s" : "m"} initial={{ opacity: 0, rotate: -30 }} animate={{ opacity: 1, rotate: 0 }} exit={{ opacity: 0, rotate: 30 }} transition={{ duration: 0.2 }}>
                   {isDark ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}
                 </motion.div>
               </AnimatePresence>
               {!sidebarCollapsed && <span className="text-[13px] font-medium">{isDark ? "Modo claro" : "Modo escuro"}</span>}
             </motion.button>
-            <Link to="/">
-              <motion.button className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground/50 hover:text-destructive hover:bg-destructive/5 transition-all duration-200 ${sidebarCollapsed ? "justify-center" : ""}`} whileTap={{ scale: 0.98 }}>
-                <LogOut className="w-[18px] h-[18px]" />
-                {!sidebarCollapsed && <span className="text-[13px] font-medium">Sair</span>}
-              </motion.button>
-            </Link>
+            <Link to="/"><motion.button className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground/50 hover:text-destructive hover:bg-destructive/5 transition-all ${sidebarCollapsed ? "justify-center" : ""}`} whileTap={{ scale: 0.98 }}><LogOut className="w-[18px] h-[18px]" />{!sidebarCollapsed && <span className="text-[13px] font-medium">Sair</span>}</motion.button></Link>
           </div>
-
-          <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className="absolute -right-3 top-20 w-6 h-6 rounded-full bg-card border border-border/40 flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-accent/40 transition-all duration-200 shadow-sm">
+          <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className="absolute -right-3 top-20 w-6 h-6 rounded-full bg-card border border-border/40 flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-accent/40 transition-all shadow-sm">
             {sidebarCollapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
           </button>
         </motion.aside>
 
-        {/* ── Main content ── */}
+        {/* ── Main ── */}
         <main className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? "ml-[72px]" : "ml-[220px]"}`}>
           {/* Top bar */}
-          <motion.header className="sticky top-0 z-20 h-16 flex items-center justify-between px-6 border-b border-border/20 bg-background/80 backdrop-blur-xl" initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-            <div>
-              <h2 className="text-[18px] font-semibold text-foreground tracking-tight">Agenda</h2>
-              <p className="text-[11px] text-muted-foreground/50">Semana de 16 a 20 de Março, 2026</p>
+          <motion.header className="sticky top-0 z-20 h-16 flex items-center justify-between px-6 border-b border-border/20 bg-background/80 backdrop-blur-xl" initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 h-9 px-3 rounded-lg border border-border/25 bg-card/30 backdrop-blur-sm text-muted-foreground/50 w-[240px]">
+                <Search className="w-3.5 h-3.5" />
+                <input type="text" placeholder="Buscar evento..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="flex-1 bg-transparent text-[12px] outline-none placeholder:text-muted-foreground/30 text-foreground" />
+              </div>
             </div>
             <div className="flex items-center gap-3">
-              {/* View toggle */}
               <div className="flex items-center h-9 rounded-lg border border-border/25 bg-card/30 backdrop-blur-sm overflow-hidden">
-                {(["semana", "kanban"] as const).map(v => (
-                  <motion.button
-                    key={v}
-                    onClick={() => setActiveView(v)}
-                    className={`h-full px-4 text-[12px] font-medium transition-all duration-200 ${activeView === v ? "bg-accent/15 text-accent" : "text-muted-foreground/50 hover:text-foreground"}`}
-                    whileTap={{ scale: 0.97 }}
-                  >
-                    {v === "semana" ? "Semana" : "Kanban"}
+                {(["mes", "semana", "lista", "kanban"] as const).map(v => (
+                  <motion.button key={v} onClick={() => setActiveView(v)} className={`h-full px-4 text-[12px] font-medium transition-all ${activeView === v ? "bg-accent/15 text-accent" : "text-muted-foreground/50 hover:text-foreground"}`} whileTap={{ scale: 0.97 }}>
+                    {v === "mes" ? "Mês" : v === "semana" ? "Semana" : v === "lista" ? "Lista" : "Kanban"}
                   </motion.button>
                 ))}
               </div>
-              <div className="flex items-center gap-1.5">
-                <motion.button className="w-8 h-8 rounded-lg border border-border/25 flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-accent/30 transition-all" whileTap={{ scale: 0.95 }}>
-                  <ChevronLeft className="w-4 h-4" />
-                </motion.button>
-                <button className="h-8 px-3 rounded-lg border border-border/25 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:border-accent/30 transition-all">
-                  Hoje
-                </button>
-                <motion.button className="w-8 h-8 rounded-lg border border-border/25 flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-accent/30 transition-all" whileTap={{ scale: 0.95 }}>
-                  <ChevronRight className="w-4 h-4" />
-                </motion.button>
-              </div>
-              <motion.button
-                onClick={() => setShowAddEvent(true)}
-                className="h-9 px-4 rounded-lg bg-accent text-accent-foreground text-[12px] font-semibold flex items-center gap-2 shadow-[0_2px_10px_-2px_hsl(var(--accent)/0.3)]"
-                whileHover={{ scale: 1.02, y: -1 }}
-                whileTap={{ scale: 0.98 }}
-              >
+              <motion.button onClick={() => setShowAddEvent(true)} className="h-9 px-4 rounded-lg bg-accent text-accent-foreground text-[12px] font-semibold flex items-center gap-2 shadow-[0_2px_10px_-2px_hsl(var(--accent)/0.3)]" whileHover={{ scale: 1.02, y: -1 }} whileTap={{ scale: 0.98 }}>
                 <Plus className="w-3.5 h-3.5" /> Agendar
               </motion.button>
             </div>
           </motion.header>
 
+          {/* Title */}
+          <div className="px-6 pt-6 pb-2">
+            <h1 className="text-[22px] font-bold text-foreground tracking-tight">Agenda de Eventos</h1>
+            <p className="text-[12px] text-muted-foreground/50 mt-0.5">Visualize os próximos eventos de forma interativa com a agenda.</p>
+          </div>
+
           {/* Content */}
-          <motion.div className="p-6" variants={containerVariants} initial="hidden" animate="visible">
+          <div className="px-6 pb-6">
             <AnimatePresence mode="wait">
-              {activeView === "semana" ? (
-                <motion.div
-                  key="semana"
-                  variants={itemVariants}
-                  initial="hidden"
-                  animate="visible"
-                  exit={{ opacity: 0, y: -10 }}
-                  className="rounded-xl border border-border/25 bg-card/40 backdrop-blur-sm overflow-hidden"
-                >
-                  {/* Week header */}
-                  <div className="grid grid-cols-5 border-b border-border/15">
-                    {weekDays.map((day, i) => (
-                      <div key={day} className={`px-4 py-4 text-center border-r border-border/10 last:border-r-0 ${i === 2 ? "bg-accent/5" : ""}`}>
-                        <p className="text-[10px] text-muted-foreground/40 font-medium tracking-wider uppercase">{day}</p>
-                        <p className={`text-[24px] font-bold mt-1 ${i === 2 ? "text-accent" : "text-foreground"}`}>{weekDates[i]}</p>
+              {activeView === "mes" ? (
+                <motion.div key="mes" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="flex gap-6">
+                  {/* Main calendar grid */}
+                  <div className="flex-1 rounded-xl border border-border/25 bg-card/40 backdrop-blur-sm overflow-hidden">
+                    {/* Month header */}
+                    <div className="flex items-center justify-between px-5 py-4 border-b border-border/15">
+                      <div className="flex items-center gap-3">
+                        <motion.button className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors" whileTap={{ scale: 0.9 }}>
+                          <ChevronLeft className="w-4 h-4" />
+                        </motion.button>
+                        <h3 className="text-[15px] font-semibold text-foreground">Março 2026</h3>
+                        <motion.button className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors" whileTap={{ scale: 0.9 }}>
+                          <ChevronRight className="w-4 h-4" />
+                        </motion.button>
                       </div>
-                    ))}
+                      <button className="h-7 px-3 rounded-md text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted/20 border border-border/25 transition-all">Hoje</button>
+                    </div>
+                    {/* DOW header */}
+                    <div className="grid grid-cols-7 border-b border-border/10">
+                      {DOW.map(d => (
+                        <div key={d} className="text-center py-2.5 text-[10px] font-medium text-muted-foreground/40 tracking-wider uppercase">{d}</div>
+                      ))}
+                    </div>
+                    {/* Days grid */}
+                    <div className="grid grid-cols-7">
+                      {calendarGrid.map((day, i) => {
+                        const events = day ? monthEvents[day] || [] : [];
+                        const isToday = day === todayDay;
+                        const isSelected = day === selectedDay;
+                        return (
+                          <motion.div
+                            key={i}
+                            className={`min-h-[100px] border-b border-r border-border/10 p-1.5 cursor-pointer transition-all duration-200 ${
+                              day === null ? "bg-muted/5" :
+                              isSelected ? "bg-accent/5 ring-1 ring-inset ring-accent/20" :
+                              isToday ? "bg-accent/[0.03]" :
+                              "hover:bg-muted/10"
+                            }`}
+                            onClick={() => day && setSelectedDay(day === selectedDay ? null : day)}
+                            whileTap={day ? { scale: 0.98 } : undefined}
+                          >
+                            {day && (
+                              <>
+                                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] mb-1 ${
+                                  isToday ? "bg-accent text-accent-foreground font-bold" : "text-foreground/60 font-medium"
+                                }`}>
+                                  {day}
+                                </div>
+                                {events.map(ev => (
+                                  <motion.div
+                                    key={ev.id}
+                                    className={`rounded px-1.5 py-0.5 mb-0.5 text-[9px] font-medium truncate cursor-pointer ${
+                                      ev.type === "virtual" ? "bg-accent/10 text-accent" : "bg-primary/10 text-primary"
+                                    }`}
+                                    whileHover={{ scale: 1.02 }}
+                                    title={`${ev.time} ${ev.title}`}
+                                  >
+                                    {ev.time} {ev.title}
+                                  </motion.div>
+                                ))}
+                              </>
+                            )}
+                          </motion.div>
+                        );
+                      })}
+                    </div>
                   </div>
 
-                  {/* Events grid */}
-                  <div className="grid grid-cols-5 min-h-[500px]">
-                    {[0, 1, 2, 3, 4].map(dayIndex => (
-                      <div key={dayIndex} className={`border-r border-border/10 last:border-r-0 p-3 space-y-2 ${dayIndex === 2 ? "bg-accent/[0.02]" : ""}`}>
-                        {(weekEvents[dayIndex] || []).map((event, i) => (
-                          <motion.div
-                            key={event.id}
-                            className={`rounded-lg p-3 cursor-pointer transition-all duration-200 hover:shadow-md ${
-                              event.type === "presencial"
-                                ? "bg-primary/8 border border-primary/15 hover:border-primary/30"
-                                : "bg-accent/8 border border-accent/15 hover:border-accent/30"
-                            }`}
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.2 + i * 0.08 + dayIndex * 0.05 }}
-                            whileHover={{ y: -2, scale: 1.01 }}
-                          >
-                            <p className="text-[12px] font-semibold text-foreground leading-snug mb-1.5">{event.title}</p>
-                            <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50 mb-1">
-                              <Clock className="w-3 h-3" />
-                              <span>{event.time} – {event.endTime}</span>
-                            </div>
-                            <div className={`inline-flex items-center gap-1 text-[9px] font-medium px-1.5 py-0.5 rounded-full ${
-                              event.type === "virtual" ? "bg-accent/10 text-accent" : "bg-primary/10 text-primary"
-                            }`}>
-                              {event.type === "virtual" ? <Video className="w-2.5 h-2.5" /> : <MapPin className="w-2.5 h-2.5" />}
-                              {event.type === "virtual" ? "Virtual" : "Presencial"}
-                            </div>
-                          </motion.div>
-                        ))}
-                        {(!weekEvents[dayIndex] || weekEvents[dayIndex].length === 0) && (
-                          <div className="flex items-center justify-center h-20 text-[10px] text-muted-foreground/20">
-                            Sem eventos
-                          </div>
-                        )}
+                  {/* Right sidebar */}
+                  <div className="w-[280px] space-y-4 shrink-0">
+                    {/* Mini calendar */}
+                    <div className="rounded-xl border border-border/25 bg-card/40 backdrop-blur-sm p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-[13px] font-semibold text-foreground">Março 2026</h4>
+                        <div className="flex gap-1">
+                          <button className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground/40 hover:text-foreground"><ChevronLeft className="w-3 h-3" /></button>
+                          <button className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground/40 hover:text-foreground"><ChevronRight className="w-3 h-3" /></button>
+                        </div>
                       </div>
-                    ))}
+                      <div className="grid grid-cols-7 gap-0.5 mb-1">
+                        {["D", "S", "T", "Q", "Q", "S", "S"].map((d, i) => (
+                          <div key={i} className="text-center text-[8px] font-medium text-muted-foreground/30 py-0.5">{d}</div>
+                        ))}
+                      </div>
+                      <div className="grid grid-cols-7 gap-0.5">
+                        {calendarGrid.map((day, i) => {
+                          const has = day ? eventDays.has(day) : false;
+                          const isT = day === todayDay;
+                          const isS = day === selectedDay;
+                          return (
+                            <div
+                              key={i}
+                              onClick={() => day && setSelectedDay(day === selectedDay ? null : day)}
+                              className={`aspect-square flex items-center justify-center text-[9px] rounded cursor-pointer transition-all ${
+                                day === null ? "" :
+                                isS ? "bg-accent text-accent-foreground font-bold" :
+                                isT ? "bg-accent text-accent-foreground font-bold" :
+                                has ? "bg-accent/15 text-accent font-semibold" :
+                                "text-foreground/50 hover:bg-muted/20"
+                              }`}
+                            >
+                              {day}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Eventos do dia */}
+                    <div className="rounded-xl border border-border/25 bg-card/40 backdrop-blur-sm p-4">
+                      <h4 className="text-[12px] font-semibold text-foreground mb-3">Eventos do dia</h4>
+                      {selectedDay && monthEvents[selectedDay] ? (
+                        <div className="space-y-2">
+                          {monthEvents[selectedDay].map(ev => (
+                            <motion.div key={ev.id} className="rounded-lg border border-border/20 bg-background/50 p-3" initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}>
+                              <p className="text-[12px] font-medium text-foreground mb-1">{ev.title}</p>
+                              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50 mb-1">
+                                <Clock className="w-3 h-3" />
+                                <span>{ev.time} – {ev.endTime}</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50 mb-1">
+                                <Building2 className="w-3 h-3" />
+                                <span>{ev.empresa}</span>
+                              </div>
+                              {ev.local && (
+                                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50">
+                                  <MapPin className="w-3 h-3" />
+                                  <span>{ev.local}</span>
+                                </div>
+                              )}
+                              <div className={`inline-flex items-center gap-1 text-[8px] font-medium px-1.5 py-0.5 rounded-full mt-2 ${ev.type === "virtual" ? "bg-accent/10 text-accent" : "bg-primary/10 text-primary"}`}>
+                                {ev.type === "virtual" ? <Video className="w-2.5 h-2.5" /> : <MapPin className="w-2.5 h-2.5" />}
+                                {ev.type === "virtual" ? "Virtual" : "Presencial"}
+                              </div>
+                            </motion.div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-muted-foreground/30 text-center py-4">Clique em um dia</p>
+                      )}
+                    </div>
+
+                    {/* Agendar Reunião */}
+                    <div className="rounded-xl border border-border/25 bg-card/40 backdrop-blur-sm p-4">
+                      <h4 className="text-[12px] font-semibold text-foreground mb-3">Agendar Reunião</h4>
+                      <div className="space-y-2.5">
+                        <div>
+                          <label className="text-[9px] text-muted-foreground/40 font-medium uppercase tracking-wider mb-1 block">Pauta *</label>
+                          <input type="text" placeholder="Pauta da reunião..." className="w-full h-8 px-2.5 rounded-lg border border-border/25 bg-background/50 text-[11px] outline-none focus:border-accent/40 transition-colors placeholder:text-muted-foreground/30" />
+                        </div>
+                        <div>
+                          <label className="text-[9px] text-muted-foreground/40 font-medium uppercase tracking-wider mb-1 block">Empresa</label>
+                          <input type="text" placeholder="Nome..." className="w-full h-8 px-2.5 rounded-lg border border-border/25 bg-background/50 text-[11px] outline-none focus:border-accent/40 transition-colors placeholder:text-muted-foreground/30" />
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div>
+                            <label className="text-[9px] text-muted-foreground/40 font-medium uppercase tracking-wider mb-1 block">Data</label>
+                            <input type="text" placeholder="DD" className="w-full h-8 px-2 rounded-lg border border-border/25 bg-background/50 text-[11px] text-center outline-none focus:border-accent/40" />
+                          </div>
+                          <div>
+                            <label className="text-[9px] text-muted-foreground/40 font-medium uppercase tracking-wider mb-1 block invisible">MM</label>
+                            <input type="text" placeholder="MM" className="w-full h-8 px-2 rounded-lg border border-border/25 bg-background/50 text-[11px] text-center outline-none focus:border-accent/40" />
+                          </div>
+                          <div>
+                            <label className="text-[9px] text-muted-foreground/40 font-medium uppercase tracking-wider mb-1 block invisible">YYYY</label>
+                            <input type="text" placeholder="YYYY" className="w-full h-8 px-2 rounded-lg border border-border/25 bg-background/50 text-[11px] text-center outline-none focus:border-accent/40" />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[9px] text-muted-foreground/40 font-medium uppercase tracking-wider mb-1 block">Hora</label>
+                            <input type="text" placeholder="H" className="w-full h-8 px-2 rounded-lg border border-border/25 bg-background/50 text-[11px] text-center outline-none focus:border-accent/40" />
+                          </div>
+                          <div>
+                            <label className="text-[9px] text-muted-foreground/40 font-medium uppercase tracking-wider mb-1 block invisible">M</label>
+                            <input type="text" placeholder="M" className="w-full h-8 px-2 rounded-lg border border-border/25 bg-background/50 text-[11px] text-center outline-none focus:border-accent/40" />
+                          </div>
+                        </div>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input type="checkbox" className="rounded border-border/30 accent-[hsl(var(--accent))]" />
+                          <span className="text-[11px] text-foreground/70">Reunião presencial</span>
+                        </label>
+                        <motion.button className="w-full h-8 rounded-lg bg-accent text-accent-foreground text-[11px] font-semibold shadow-[0_2px_8px_-2px_hsl(var(--accent)/0.3)]" whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}>
+                          Confirmar Agendamento
+                        </motion.button>
+                      </div>
+                    </div>
                   </div>
                 </motion.div>
-              ) : (
-                /* ── KANBAN VIEW ── */
-                <motion.div
-                  key="kanban"
-                  variants={itemVariants}
-                  initial="hidden"
-                  animate="visible"
-                  exit={{ opacity: 0, y: -10 }}
-                  className="grid grid-cols-4 gap-4"
-                >
+              ) : activeView === "kanban" ? (
+                /* ── KANBAN ── */
+                <motion.div key="kanban" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="grid grid-cols-4 gap-4">
                   {kanbanColumns.map((col, colIndex) => (
-                    <motion.div
-                      key={col.id}
-                      className={`rounded-xl border bg-card/40 backdrop-blur-sm overflow-hidden flex flex-col transition-all duration-200 ${
-                        dragOverCol === col.id ? "border-accent/40 bg-accent/[0.03]" : "border-border/25"
-                      }`}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: colIndex * 0.08 }}
-                      onDragOver={e => handleDragOver(e, col.id)}
-                      onDragLeave={() => setDragOverCol(null)}
-                      onDrop={() => handleDrop(col.id)}
-                    >
-                      {/* Column header */}
+                    <motion.div key={col.id} className={`rounded-xl border bg-card/40 backdrop-blur-sm overflow-hidden flex flex-col transition-all ${dragOverCol === col.id ? "border-accent/40 bg-accent/[0.03]" : "border-border/25"}`} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: colIndex * 0.08 }} onDragOver={e => handleDragOver(e, col.id)} onDragLeave={() => setDragOverCol(null)} onDrop={() => handleDrop(col.id)}>
                       <div className="px-4 py-3 border-b border-border/15 flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <div className={`w-2 h-2 rounded-full bg-${col.color}`} style={{ backgroundColor: `hsl(var(--${col.color}))` }} />
+                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: `hsl(var(--${col.color}))` }} />
                           <span className="text-[12px] font-semibold text-foreground">{col.title}</span>
                         </div>
-                        <span className="text-[10px] font-mono text-muted-foreground/40 bg-muted/20 px-1.5 py-0.5 rounded">
-                          {kanbanCards[col.id]?.length || 0}
-                        </span>
+                        <span className="text-[10px] font-mono text-muted-foreground/40 bg-muted/20 px-1.5 py-0.5 rounded">{kanbanCards[col.id]?.length || 0}</span>
                       </div>
-
-                      {/* Cards */}
                       <div className="p-3 space-y-2 flex-1 min-h-[400px]">
-                        {(kanbanCards[col.id] || []).map((card, i) => (
-                          <motion.div
-                            key={card.id}
-                            draggable
-                            onDragStart={() => handleDragStart(card, col.id)}
-                            className="rounded-lg border border-border/20 bg-background/60 p-3 cursor-grab active:cursor-grabbing hover:border-accent/20 hover:shadow-sm transition-all duration-200 group"
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ delay: 0.3 + i * 0.05 }}
-                            whileHover={{ y: -1 }}
-                          >
+                        {(kanbanCards[col.id] || []).map((card, ci) => (
+                          <motion.div key={card.id} draggable onDragStart={() => handleDragStart(card, col.id)} className="rounded-lg border border-border/20 bg-background/60 p-3 cursor-grab active:cursor-grabbing hover:border-accent/20 hover:shadow-sm transition-all group" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 + ci * 0.05 }} whileHover={{ y: -1 }}>
                             <div className="flex items-start justify-between mb-2">
                               <p className="text-[12px] font-medium text-foreground leading-snug pr-2">{card.title}</p>
-                              <GripVertical className="w-3.5 h-3.5 text-muted-foreground/20 group-hover:text-muted-foreground/40 shrink-0 mt-0.5 transition-colors" />
+                              <GripVertical className="w-3.5 h-3.5 text-muted-foreground/20 group-hover:text-muted-foreground/40 shrink-0 mt-0.5" />
                             </div>
                             <p className="text-[10px] text-muted-foreground/50 mb-2">{card.empresa}</p>
                             <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-1.5 text-[9px] text-muted-foreground/40">
-                                <CalendarIcon className="w-3 h-3" />
-                                <span>{card.date}</span>
-                              </div>
+                              <div className="flex items-center gap-1.5 text-[9px] text-muted-foreground/40"><CalendarIcon className="w-3 h-3" /><span>{card.date}</span></div>
                               <div className="flex items-center gap-1.5">
-                                <span className={`text-[8px] font-medium px-1.5 py-0.5 rounded-full border ${priorityColors[card.priority]}`}>
-                                  {card.priority}
-                                </span>
-                                <span className={`inline-flex items-center gap-0.5 text-[8px] font-medium px-1.5 py-0.5 rounded-full ${
-                                  card.type === "virtual" ? "bg-accent/10 text-accent" : "bg-primary/10 text-primary"
-                                }`}>
+                                <span className={`text-[8px] font-medium px-1.5 py-0.5 rounded-full border ${priorityColors[card.priority]}`}>{card.priority}</span>
+                                <span className={`inline-flex items-center gap-0.5 text-[8px] font-medium px-1.5 py-0.5 rounded-full ${card.type === "virtual" ? "bg-accent/10 text-accent" : "bg-primary/10 text-primary"}`}>
                                   {card.type === "virtual" ? <Video className="w-2 h-2" /> : <MapPin className="w-2 h-2" />}
                                   {card.type === "virtual" ? "Virtual" : "Presencial"}
                                 </span>
@@ -400,85 +440,75 @@ const Agenda = () => {
                             </div>
                           </motion.div>
                         ))}
-
                         {(kanbanCards[col.id] || []).length === 0 && (
-                          <div className="flex items-center justify-center h-24 rounded-lg border border-dashed border-border/20 text-[10px] text-muted-foreground/20">
-                            Arraste cards aqui
-                          </div>
+                          <div className="flex items-center justify-center h-24 rounded-lg border border-dashed border-border/20 text-[10px] text-muted-foreground/20">Arraste cards aqui</div>
                         )}
                       </div>
                     </motion.div>
                   ))}
                 </motion.div>
+              ) : (
+                /* ── LIST / SEMANA placeholder ── */
+                <motion.div key="list" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="rounded-xl border border-border/25 bg-card/40 backdrop-blur-sm overflow-hidden">
+                  <div className="px-5 py-4 border-b border-border/15">
+                    <h3 className="text-[14px] font-semibold text-foreground">Todos os Eventos — Março 2026</h3>
+                  </div>
+                  <div className="divide-y divide-border/10">
+                    {Object.entries(monthEvents).sort(([a], [b]) => Number(a) - Number(b)).map(([day, events]) =>
+                      events.map(ev => (
+                        <motion.div key={ev.id} className="px-5 py-3 flex items-center gap-4 hover:bg-muted/10 transition-colors cursor-pointer" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                          <div className="w-10 text-center">
+                            <p className="text-[16px] font-bold text-foreground">{day}</p>
+                            <p className="text-[9px] text-muted-foreground/40">MAR</p>
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-[13px] font-medium text-foreground">{ev.title}</p>
+                            <div className="flex items-center gap-3 text-[10px] text-muted-foreground/50 mt-0.5">
+                              <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{ev.time} – {ev.endTime}</span>
+                              <span className="flex items-center gap-1"><Building2 className="w-3 h-3" />{ev.empresa}</span>
+                              {ev.local && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{ev.local}</span>}
+                            </div>
+                          </div>
+                          <span className={`inline-flex items-center gap-1 text-[9px] font-medium px-2 py-0.5 rounded-full ${ev.type === "virtual" ? "bg-accent/10 text-accent" : "bg-primary/10 text-primary"}`}>
+                            {ev.type === "virtual" ? <Video className="w-2.5 h-2.5" /> : <MapPin className="w-2.5 h-2.5" />}
+                            {ev.type === "virtual" ? "Virtual" : "Presencial"}
+                          </span>
+                        </motion.div>
+                      ))
+                    )}
+                  </div>
+                </motion.div>
               )}
             </AnimatePresence>
-          </motion.div>
+          </div>
         </main>
       </div>
 
       {/* ── Add Event Modal ── */}
       <AnimatePresence>
         {showAddEvent && (
-          <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center p-6"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
+          <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <motion.div className="absolute inset-0 bg-background/80 backdrop-blur-md" onClick={() => setShowAddEvent(false)} />
-            <motion.div
-              className="relative z-10 w-full max-w-md rounded-2xl border border-border/30 bg-card/95 backdrop-blur-xl shadow-2xl overflow-hidden"
-              initial={{ scale: 0.92, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.92, opacity: 0, y: 20 }}
-              transition={{ duration: 0.3 }}
-            >
+            <motion.div className="relative z-10 w-full max-w-md rounded-2xl border border-border/30 bg-card/95 backdrop-blur-xl shadow-2xl overflow-hidden" initial={{ scale: 0.92, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.92, opacity: 0, y: 20 }}>
               <div className="flex items-center justify-between p-5 border-b border-border/20">
                 <h2 className="text-[16px] font-semibold text-foreground">Agendar Reunião</h2>
-                <motion.button onClick={() => setShowAddEvent(false)} className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors" whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                  <X className="w-4 h-4" />
-                </motion.button>
+                <motion.button onClick={() => setShowAddEvent(false)} className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors" whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}><X className="w-4 h-4" /></motion.button>
               </div>
               <div className="p-5 space-y-4">
-                <div>
-                  <label className="text-[10px] text-muted-foreground/50 font-medium tracking-wider uppercase mb-1.5 block">Pauta</label>
-                  <input type="text" placeholder="Pauta da reunião..." className="w-full h-10 px-3 rounded-lg border border-border/25 bg-background/50 text-[13px] outline-none focus:border-accent/40 transition-colors placeholder:text-muted-foreground/30" />
-                </div>
-                <div>
-                  <label className="text-[10px] text-muted-foreground/50 font-medium tracking-wider uppercase mb-1.5 block">Empresa</label>
-                  <input type="text" placeholder="Nome da empresa" className="w-full h-10 px-3 rounded-lg border border-border/25 bg-background/50 text-[13px] outline-none focus:border-accent/40 transition-colors placeholder:text-muted-foreground/30" />
-                </div>
+                <div><label className="text-[10px] text-muted-foreground/50 font-medium tracking-wider uppercase mb-1.5 block">Pauta</label><input type="text" placeholder="Pauta da reunião..." className="w-full h-10 px-3 rounded-lg border border-border/25 bg-background/50 text-[13px] outline-none focus:border-accent/40 transition-colors placeholder:text-muted-foreground/30" /></div>
+                <div><label className="text-[10px] text-muted-foreground/50 font-medium tracking-wider uppercase mb-1.5 block">Empresa</label><input type="text" placeholder="Nome da empresa" className="w-full h-10 px-3 rounded-lg border border-border/25 bg-background/50 text-[13px] outline-none focus:border-accent/40 transition-colors placeholder:text-muted-foreground/30" /></div>
                 <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] text-muted-foreground/50 font-medium tracking-wider uppercase mb-1.5 block">Data</label>
-                    <input type="date" className="w-full h-10 px-3 rounded-lg border border-border/25 bg-background/50 text-[13px] outline-none focus:border-accent/40 transition-colors text-foreground" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] text-muted-foreground/50 font-medium tracking-wider uppercase mb-1.5 block">Horário</label>
-                    <input type="time" className="w-full h-10 px-3 rounded-lg border border-border/25 bg-background/50 text-[13px] outline-none focus:border-accent/40 transition-colors text-foreground" />
-                  </div>
+                  <div><label className="text-[10px] text-muted-foreground/50 font-medium tracking-wider uppercase mb-1.5 block">Data</label><input type="date" className="w-full h-10 px-3 rounded-lg border border-border/25 bg-background/50 text-[13px] outline-none focus:border-accent/40 text-foreground" /></div>
+                  <div><label className="text-[10px] text-muted-foreground/50 font-medium tracking-wider uppercase mb-1.5 block">Horário</label><input type="time" className="w-full h-10 px-3 rounded-lg border border-border/25 bg-background/50 text-[13px] outline-none focus:border-accent/40 text-foreground" /></div>
                 </div>
                 <div>
-                  <label className="text-[10px] text-muted-foreground/50 font-medium tracking-wider uppercase mb-1.5 block">Valor</label>
+                  <label className="text-[10px] text-muted-foreground/50 font-medium tracking-wider uppercase mb-1.5 block">Tipo</label>
                   <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input type="radio" name="tipo" defaultChecked className="accent-[hsl(var(--accent))]" />
-                      <span className="text-[12px] text-foreground/70">Virtual</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input type="radio" name="tipo" className="accent-[hsl(var(--accent))]" />
-                      <span className="text-[12px] text-foreground/70">Presencial</span>
-                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="tipo" defaultChecked className="accent-[hsl(var(--accent))]" /><span className="text-[12px] text-foreground/70">Virtual</span></label>
+                    <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="tipo" className="accent-[hsl(var(--accent))]" /><span className="text-[12px] text-foreground/70">Presencial</span></label>
                   </div>
                 </div>
-                <motion.button
-                  onClick={() => setShowAddEvent(false)}
-                  className="w-full h-10 rounded-lg bg-accent text-accent-foreground text-[13px] font-semibold shadow-[0_2px_10px_-2px_hsl(var(--accent)/0.3)]"
-                  whileHover={{ scale: 1.01, y: -1 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  Confirmar Agendamento
-                </motion.button>
+                <motion.button onClick={() => setShowAddEvent(false)} className="w-full h-10 rounded-lg bg-accent text-accent-foreground text-[13px] font-semibold shadow-[0_2px_10px_-2px_hsl(var(--accent)/0.3)]" whileHover={{ scale: 1.01, y: -1 }} whileTap={{ scale: 0.98 }}>Confirmar Agendamento</motion.button>
               </div>
             </motion.div>
           </motion.div>

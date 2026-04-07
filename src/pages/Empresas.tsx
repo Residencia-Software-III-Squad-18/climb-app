@@ -3,17 +3,18 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Home, FileText, Calendar as CalendarIcon, Shield, Building2, Settings,
   LogOut, Sun, Moon, ChevronLeft, ChevronRight, Search, Download,
-  Eye, Briefcase, CheckCircle2, X
+  Eye, Briefcase, CheckCircle2, X, FileCheck
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import ClimbLogo from "@/components/login/ClimbLogo";
 
 const navItems = [
   { icon: Home, label: "Home", path: "/dashboard" },
-  { icon: FileText, label: "Contratos", path: "/dashboard" },
+  { icon: FileText, label: "Contratos", path: "/contratos" },
   { icon: CalendarIcon, label: "Agenda", path: "/agenda" },
   { icon: Shield, label: "Permissões", path: "/permissoes" },
   { icon: Building2, label: "Empresas", path: "/empresas" },
+  { icon: FileCheck, label: "Documentos", path: "/documentos" },
   { icon: Settings, label: "Configurações", path: "/dashboard" },
 ];
 

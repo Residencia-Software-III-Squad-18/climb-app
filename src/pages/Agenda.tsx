@@ -301,70 +301,63 @@ const Agenda = () => {
                 </motion.div>
               )}
 
-              {/* ═══ SEMANA — Weekday time grid ═══ */}
+              {/* ═══ SEMANA — Card-based day columns ═══ */}
               {activeView === "semana" && (
-                <motion.div key="semana" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="rounded-xl border border-border/25 bg-card/40 backdrop-blur-sm overflow-hidden">
-                  <div className="flex items-center justify-between px-5 py-4 border-b border-border/15">
+                <motion.div key="semana" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
+                  <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
-                      <motion.button className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/20" whileTap={{ scale: 0.9 }}><ChevronLeft className="w-4 h-4" /></motion.button>
-                      <h3 className="text-[15px] font-semibold text-foreground">9 – 13 Março 2026</h3>
-                      <motion.button className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/20" whileTap={{ scale: 0.9 }}><ChevronRight className="w-4 h-4" /></motion.button>
+                      <motion.button className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/20 border border-border/20" whileTap={{ scale: 0.9 }}><ChevronLeft className="w-4 h-4" /></motion.button>
+                      <button className="h-7 px-3 rounded-md text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted/20 border border-border/25 transition-all">Hoje</button>
+                      <motion.button className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/20 border border-border/20" whileTap={{ scale: 0.9 }}><ChevronRight className="w-4 h-4" /></motion.button>
                     </div>
-                    <button className="h-7 px-3 rounded-md text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted/20 border border-border/25 transition-all">Hoje</button>
+                    <p className="text-[12px] text-muted-foreground/50">Semana de 9 a 13 de Março, 2026</p>
                   </div>
 
-                  {/* Day headers */}
-                  <div className="grid grid-cols-[60px_repeat(5,1fr)] border-b border-border/10">
-                    <div className="border-r border-border/10" />
+                  <div className="grid grid-cols-5 gap-4">
                     {WEEK_DAYS.map((d, i) => {
                       const dayNum = weekDayDates[i];
                       const isToday = dayNum === todayDay;
+                      const dayEvents = monthEvents[dayNum] || [];
                       return (
-                        <div key={d} className={`text-center py-3 border-r border-border/10 last:border-r-0 ${isToday ? "bg-accent/5" : ""}`}>
-                          <p className="text-[10px] font-medium text-muted-foreground/40 tracking-wider uppercase">{d}</p>
-                          <p className={`text-[16px] font-bold mt-0.5 ${isToday ? "text-accent" : "text-foreground/70"}`}>{dayNum}</p>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Time grid */}
-                  <div className="grid grid-cols-[60px_repeat(5,1fr)] max-h-[calc(100vh-280px)] overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-muted-foreground/20 [&::-webkit-scrollbar-thumb]:rounded-full">
-                    {HOURS.map((hour) => {
-                      const hourNum = parseInt(hour, 10);
-                      return (
-                        <div key={hour} className="contents">
-                          <div className="h-16 border-r border-b border-border/10 flex items-start justify-end pr-2 pt-1">
-                            <span className="text-[10px] text-muted-foreground/30 font-mono">{hour}</span>
+                        <motion.div
+                          key={d}
+                          className={`rounded-xl border bg-card/40 backdrop-blur-sm overflow-hidden min-h-[400px] flex flex-col ${isToday ? "border-accent/30 bg-accent/[0.03]" : "border-border/25"}`}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.06 }}
+                        >
+                          {/* Day header */}
+                          <div className={`px-4 py-3 border-b text-center ${isToday ? "border-accent/20 bg-accent/5" : "border-border/15"}`}>
+                            <p className="text-[10px] font-medium text-muted-foreground/50 tracking-wider uppercase">{d}</p>
+                            <p className={`text-[22px] font-bold mt-0.5 ${isToday ? "text-accent" : "text-foreground/70"}`}>{dayNum}</p>
                           </div>
-                          {weekDayDates.map((dayNum, colIdx) => {
-                            const dayEvents = monthEvents[dayNum] || [];
-                            const eventsThisHour = dayEvents.filter(ev => getEventHour(ev.time) === hourNum);
-                            const isToday = dayNum === todayDay;
-                            return (
-                              <div key={colIdx} className={`h-16 border-r border-b border-border/10 last:border-r-0 relative p-0.5 ${isToday ? "bg-accent/[0.02]" : ""}`}>
-                                {eventsThisHour.map(ev => {
-                                  const duration = getEventEndHour(ev.endTime) - getEventHour(ev.time);
-                                  return (
-                                    <motion.div
-                                      key={ev.id}
-                                      className={`absolute left-0.5 right-0.5 rounded-lg px-2 py-1.5 cursor-pointer overflow-hidden ${ev.type === "virtual" ? "bg-accent/15 border border-accent/20 hover:bg-accent/25" : "bg-primary/15 border border-primary/20 hover:bg-primary/25"}`}
-                                      style={{ top: 2, height: `${Math.max(duration, 1) * 64 - 4}px`, zIndex: 10 }}
-                                      initial={{ opacity: 0, scale: 0.9 }}
-                                      animate={{ opacity: 1, scale: 1 }}
-                                      whileHover={{ scale: 1.02, y: -1, boxShadow: "0 4px 12px -4px hsl(var(--accent) / 0.2)" }}
-                                      transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                                    >
-                                      <p className={`text-[10px] font-semibold truncate ${ev.type === "virtual" ? "text-accent" : "text-primary"}`}>{ev.title}</p>
-                                      <p className="text-[9px] text-muted-foreground/50 truncate">{ev.time} – {ev.endTime}</p>
-                                      <p className="text-[8px] text-muted-foreground/40 truncate">{ev.empresa}</p>
-                                    </motion.div>
-                                  );
-                                })}
-                              </div>
-                            );
-                          })}
-                        </div>
+                          {/* Events */}
+                          <div className="p-3 space-y-2 flex-1">
+                            {dayEvents.map((ev, ei) => (
+                              <motion.div
+                                key={ev.id}
+                                className={`rounded-lg p-3 cursor-pointer transition-all ${ev.type === "virtual" ? "bg-accent/8 border border-accent/15 hover:bg-accent/15" : "bg-primary/8 border border-primary/15 hover:bg-primary/15"}`}
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                transition={{ delay: i * 0.06 + ei * 0.05 }}
+                                whileHover={{ y: -2, boxShadow: "0 4px 12px -4px hsl(var(--accent) / 0.15)" }}
+                              >
+                                <p className="text-[12px] font-semibold text-foreground/80 mb-1.5">{ev.title}</p>
+                                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50 mb-1">
+                                  <Clock className="w-3 h-3" />
+                                  <span>{ev.time} – {ev.endTime}</span>
+                                </div>
+                                <div className={`inline-flex items-center gap-1 text-[9px] font-medium px-1.5 py-0.5 rounded-full ${ev.type === "virtual" ? "bg-accent/15 text-accent" : "bg-primary/15 text-primary"}`}>
+                                  {ev.type === "virtual" ? <Video className="w-2.5 h-2.5" /> : <MapPin className="w-2.5 h-2.5" />}
+                                  {ev.type === "virtual" ? "Virtual" : "Presencial"}
+                                </div>
+                              </motion.div>
+                            ))}
+                            {dayEvents.length === 0 && (
+                              <div className="flex items-center justify-center h-20 text-[10px] text-muted-foreground/20">Sem eventos</div>
+                            )}
+                          </div>
+                        </motion.div>
                       );
                     })}
                   </div>

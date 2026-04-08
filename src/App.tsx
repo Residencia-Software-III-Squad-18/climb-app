@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import Index from "./pages/Index.tsx";
 import Dashboard from "./pages/Dashboard.tsx";
 import RecuperarSenha from "./pages/RecuperarSenha.tsx";
+import SolicitarAcesso from "./pages/SolicitarAcesso.tsx";
 import Agenda from "./pages/Agenda.tsx";
 import Permissoes from "./pages/Permissoes.tsx";
 import Empresas from "./pages/Empresas.tsx";
@@ -25,6 +26,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/recuperar-senha" element={<RecuperarSenha />} />
+          <Route path="/solicitar-acesso" element={<SolicitarAcesso />} />
           <Route path="/agenda" element={<Agenda />} />
           <Route path="/permissoes" element={<Permissoes />} />
           <Route path="/empresas" element={<Empresas />} />

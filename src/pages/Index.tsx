@@ -1,21 +1,21 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Eye, EyeOff, ArrowRight, Moon, Sun } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import ClimbLogo from "@/components/login/ClimbLogo";
 import InvestmentGraphics from "@/components/login/InvestmentGraphics";
-import { useThemeMode } from "@/hooks/use-theme-mode";
+import { useTheme } from "@/hooks/use-theme";
 
 const Index = () => {
-  const { isDark, toggleTheme } = useThemeMode();
+  const { isDark, setIsDark } = useTheme();
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   return (
     <div className="relative min-h-screen bg-background text-foreground transition-colors duration-500 overflow-hidden">
-      {/* Noise texture */}
       <div
         className="fixed inset-0 pointer-events-none opacity-[0.015] dark:opacity-[0.03]"
         style={{
@@ -25,7 +25,6 @@ const Index = () => {
         }}
       />
 
-      {/* Ambient gradients */}
       <motion.div
         className="fixed top-[-25%] right-[-15%] w-[800px] h-[800px] rounded-full pointer-events-none"
         style={{ background: "radial-gradient(circle, hsl(var(--accent) / 0.06) 0%, transparent 60%)" }}
@@ -39,17 +38,15 @@ const Index = () => {
         transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
       />
 
-      {/* Subtle grid pattern behind right side */}
-      <div className="fixed inset-0 pointer-events-none opacity-[0.01] dark:opacity-[0.02]"
+      <div
+        className="fixed inset-0 pointer-events-none opacity-[0.01] dark:opacity-[0.02]"
         style={{
           backgroundImage: `linear-gradient(hsl(var(--foreground) / 0.42) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--foreground) / 0.42) 1px, transparent 1px)`,
           backgroundSize: "72px 72px",
         }}
       />
 
-      {/* Layout */}
       <div className="relative z-10 min-h-screen grid grid-rows-[auto_1fr_auto]">
-        {/* Header */}
         <header className="flex items-center justify-between px-6 md:px-10 lg:px-14 py-5">
           <ClimbLogo className="h-4 text-foreground" />
 
@@ -64,7 +61,7 @@ const Index = () => {
               Ambiente restrito
             </motion.div>
             <motion.button
-              onClick={toggleTheme}
+              onClick={() => setIsDark(!isDark)}
               className="w-7 h-7 rounded border border-border/50 flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-border transition-all duration-200"
               aria-label="Alternar tema"
               whileHover={{ scale: 1.05 }}
@@ -85,12 +82,9 @@ const Index = () => {
           </div>
         </header>
 
-        {/* Main */}
         <main className="flex items-center px-6 md:px-10 lg:px-14">
           <div className="w-full max-w-6xl mx-auto grid lg:grid-cols-[420px_1px_1fr] xl:grid-cols-[460px_1px_1fr] gap-0 items-center">
-            {/* LEFT — Login form */}
             <div className="w-full max-w-sm lg:max-w-none mx-auto lg:mx-0 lg:pr-14 xl:pr-20">
-              {/* Mobile logo */}
               <div className="lg:hidden mb-6">
                 <ClimbLogo className="h-4 text-foreground" />
               </div>
@@ -111,13 +105,15 @@ const Index = () => {
               </motion.div>
 
               <motion.form
-                onSubmit={(e) => e.preventDefault()}
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  navigate("/dashboard");
+                }}
                 className="space-y-5"
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.15, ease: "easeOut" }}
               >
-                {/* Email */}
                 <div>
                   <label className="text-[11px] font-medium text-muted-foreground/70 mb-1.5 block tracking-wide">
                     E-mail corporativo
@@ -141,7 +137,6 @@ const Index = () => {
                   </div>
                 </div>
 
-                {/* Password */}
                 <div>
                   <label className="text-[11px] font-medium text-muted-foreground/70 mb-1.5 block tracking-wide">
                     Senha
@@ -172,7 +167,6 @@ const Index = () => {
                   </div>
                 </div>
 
-                {/* Links */}
                 <div className="flex justify-between items-center">
                   <Link
                     to="/recuperar-senha"
@@ -188,7 +182,6 @@ const Index = () => {
                   </Link>
                 </div>
 
-                {/* Submit */}
                 <motion.button
                   type="submit"
                   className="w-full h-11 rounded-md bg-accent text-accent-foreground text-sm font-semibold flex items-center justify-center gap-2 group relative overflow-hidden"
@@ -212,7 +205,6 @@ const Index = () => {
                   </span>
                 </motion.button>
 
-                {/* Divider */}
                 <div className="relative py-1">
                   <div className="absolute inset-0 flex items-center">
                     <div className="w-full border-t border-border/40" />
@@ -224,7 +216,6 @@ const Index = () => {
                   </div>
                 </div>
 
-                {/* Google */}
                 <motion.button
                   type="button"
                   className="w-full h-11 rounded-md border border-border/50 bg-background text-sm font-medium text-foreground flex items-center justify-center gap-2.5 transition-colors duration-200 hover:bg-muted/30 hover:border-border"
@@ -242,23 +233,20 @@ const Index = () => {
               </motion.form>
             </div>
 
-            {/* Vertical separator */}
             <div className="hidden lg:block w-px bg-border/40 self-stretch my-16" />
 
-            {/* RIGHT — Investment graphics */}
             <div className="hidden lg:block pl-14 xl:pl-20">
               <InvestmentGraphics />
             </div>
           </div>
         </main>
 
-        {/* Footer */}
         <footer className="flex items-center justify-between px-6 md:px-10 lg:px-14 py-5">
           <motion.span
             className="text-[9px] text-muted-foreground/25 tracking-wide"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 0.5, delay: 1 }}
+            transition={{ duration: 0.6, delay: 1.2 }}
           >
             © 2026 Climb Investimentos Independentes
           </motion.span>
@@ -266,7 +254,7 @@ const Index = () => {
             className="text-[9px] text-muted-foreground/25 font-mono"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 0.5, delay: 1.1 }}
+            transition={{ duration: 0.6, delay: 1.4 }}
           >
             v3.1.0
           </motion.span>

@@ -3,10 +3,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, ArrowRight, Moon, Sun } from "lucide-react";
 import { Link } from "react-router-dom";
 import ClimbLogo from "@/components/login/ClimbLogo";
-import { useThemeMode } from "@/hooks/use-theme-mode";
+import { useTheme } from "@/hooks/use-theme";
 
 const SolicitarAcesso = () => {
-  const { isDark, toggleTheme } = useThemeMode();
+  const { isDark, setIsDark } = useTheme();
   const [submitted, setSubmitted] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [form, setForm] = useState({
@@ -52,7 +52,7 @@ const SolicitarAcesso = () => {
         <header className="flex items-center justify-between px-6 md:px-10 lg:px-14 py-5">
           <ClimbLogo className="h-4 text-foreground" />
           <motion.button
-            onClick={toggleTheme}
+            onClick={() => setIsDark(!isDark)}
             className="w-7 h-7 rounded border border-border/50 flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-border transition-all duration-200"
             aria-label="Alternar tema"
             whileHover={{ scale: 1.05 }}

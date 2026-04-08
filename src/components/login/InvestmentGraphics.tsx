@@ -2,25 +2,22 @@ import { motion } from "framer-motion";
 
 /** Elegant performance curve — SVG line chart with animated draw */
 const PerformanceCurve = () => {
-  const chartWidth = 398;
-  const endX = 384;
-  const points = `0,80 30,72 60,75 90,60 120,65 150,45 180,50 210,30 240,35 270,18 300,22 330,10 360,12 ${endX},5`;
+  const points = "0,80 30,72 60,75 90,60 120,65 150,45 180,50 210,30 240,35 270,18 300,22 330,10 360,12 390,5";
   return (
     <motion.svg
-      viewBox={`0 0 ${chartWidth} 90`}
+      viewBox="0 0 390 90"
       className="w-full h-auto"
-      style={{ overflow: "visible" }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 1, delay: 0.8 }}
     >
       {/* Grid lines */}
       {[20, 40, 60, 80].map((y) => (
-        <line key={y} x1="0" y1={y} x2={chartWidth} y2={y} stroke="hsl(var(--border))" strokeWidth="0.5" opacity="0.3" />
+        <line key={y} x1="0" y1={y} x2="390" y2={y} stroke="hsl(var(--border))" strokeWidth="0.5" opacity="0.3" />
       ))}
       {/* Area fill */}
       <motion.path
-        d={`M0,90 L${points} L${chartWidth},90 Z`}
+        d={`M0,90 L${points} L390,90 Z`}
         fill="url(#areaGrad)"
         initial={{ opacity: 0 }}
         animate={{ opacity: 0.15 }}
@@ -31,7 +28,7 @@ const PerformanceCurve = () => {
         points={points}
         fill="none"
         stroke="hsl(var(--accent))"
-        strokeWidth="1.9"
+        strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
         initial={{ pathLength: 0, opacity: 0 }}
@@ -40,21 +37,21 @@ const PerformanceCurve = () => {
       />
       {/* Endpoint glow */}
       <motion.circle
-        cx={endX}
+        cx="390"
         cy="5"
-        r="3.4"
+        r="3"
         fill="hsl(var(--accent))"
         initial={{ opacity: 0, scale: 0 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.4, delay: 2.6 }}
       />
       <motion.circle
-        cx={endX}
+        cx="390"
         cy="5"
-        r="6.8"
+        r="6"
         fill="none"
         stroke="hsl(var(--accent))"
-        strokeWidth="1.15"
+        strokeWidth="1"
         initial={{ opacity: 0, scale: 0 }}
         animate={{ opacity: [0, 0.4, 0], scale: [0.5, 1.5, 2] }}
         transition={{ duration: 2, delay: 2.6, repeat: Infinity, repeatDelay: 3 }}

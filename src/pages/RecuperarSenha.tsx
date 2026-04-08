@@ -3,17 +3,16 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, ArrowRight, Moon, Sun } from "lucide-react";
 import { Link } from "react-router-dom";
 import ClimbLogo from "@/components/login/ClimbLogo";
-import { useThemeMode } from "@/hooks/use-theme-mode";
+import { useTheme } from "@/hooks/use-theme";
 
 const RecuperarSenha = () => {
-  const { isDark, toggleTheme } = useThemeMode();
+  const { isDark, setIsDark } = useTheme();
   const [email, setEmail] = useState("");
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
 
   return (
     <div className="relative min-h-screen bg-background text-foreground transition-colors duration-500 overflow-hidden">
-      {/* Noise texture */}
       <div
         className="fixed inset-0 pointer-events-none opacity-[0.015] dark:opacity-[0.03]"
         style={{
@@ -23,7 +22,6 @@ const RecuperarSenha = () => {
         }}
       />
 
-      {/* Ambient gradients */}
       <motion.div
         className="fixed top-[-25%] right-[-15%] w-[800px] h-[800px] rounded-full pointer-events-none"
         style={{ background: "radial-gradient(circle, hsl(var(--accent) / 0.06) 0%, transparent 60%)" }}
@@ -37,7 +35,6 @@ const RecuperarSenha = () => {
         transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
       />
 
-      {/* Grid pattern */}
       <div
         className="fixed inset-0 pointer-events-none opacity-[0.01] dark:opacity-[0.02]"
         style={{
@@ -47,11 +44,10 @@ const RecuperarSenha = () => {
       />
 
       <div className="relative z-10 min-h-screen grid grid-rows-[auto_1fr_auto]">
-        {/* Header */}
         <header className="flex items-center justify-between px-6 md:px-10 lg:px-14 py-5">
           <ClimbLogo className="h-4 text-foreground" />
           <motion.button
-            onClick={toggleTheme}
+            onClick={() => setIsDark(!isDark)}
             className="w-7 h-7 rounded border border-border/50 flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-border transition-all duration-200"
             aria-label="Alternar tema"
             whileHover={{ scale: 1.05 }}
@@ -71,7 +67,6 @@ const RecuperarSenha = () => {
           </motion.button>
         </header>
 
-        {/* Main */}
         <main className="flex items-center justify-center px-6 md:px-10 lg:px-14">
           <div className="w-full max-w-sm">
             <motion.div
@@ -202,7 +197,6 @@ const RecuperarSenha = () => {
           </div>
         </main>
 
-        {/* Footer */}
         <footer className="flex items-center justify-between px-6 md:px-10 lg:px-14 py-5">
           <span className="text-[9px] text-muted-foreground/25 tracking-wide">
             © 2026 Climb Investimentos Independentes

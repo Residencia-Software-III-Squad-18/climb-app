@@ -135,9 +135,6 @@ const Agenda = () => {
 
   const todayDay = 9;
 
-  /* Helper: get hour from event time string */
-  const getEventHour = (time: string) => parseInt(time.split(":")[0], 10);
-  const getEventEndHour = (time: string) => parseInt(time.split(":")[0], 10);
 
   return (
     <div className="relative min-h-screen bg-background text-foreground transition-colors duration-500 overflow-hidden">

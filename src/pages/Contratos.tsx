@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
+import { useTheme } from "@/hooks/use-theme";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Home, FileText, Calendar as CalendarIcon, Shield, Building2, Settings,
@@ -64,16 +65,13 @@ type FilterTab = "Todos" | "Ativos" | "Em análise" | "Pendente" | "Concluído";
 const tabs: FilterTab[] = ["Todos", "Ativos", "Em análise", "Pendente", "Concluído"];
 
 const Contratos = () => {
-  const [isDark, setIsDark] = useState(true);
+  const { isDark, setIsDark } = useTheme();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState<FilterTab>("Todos");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedContrato, setSelectedContrato] = useState<Contrato | null>(null);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", isDark);
-  }, [isDark]);
 
   const filtered = useMemo(() => {
     return contratos.filter(c => {

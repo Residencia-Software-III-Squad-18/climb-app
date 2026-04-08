@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useTheme } from "@/hooks/use-theme";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Home, FileText, Calendar as CalendarIcon, Shield, Building2, Settings,
@@ -92,15 +93,12 @@ const statusConfig: Record<string, { label: string; color: string; icon: typeof 
 };
 
 const Documentos = () => {
-  const [isDark, setIsDark] = useState(true);
+  const { isDark, setIsDark } = useTheme();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedClient, setSelectedClient] = useState<ClientDocs | null>(null);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", isDark);
-  }, [isDark]);
 
   const filtered = clientsDocuments.filter(c =>
     c.empresa.toLowerCase().includes(searchQuery.toLowerCase())

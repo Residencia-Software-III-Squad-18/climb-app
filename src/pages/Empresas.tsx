@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
+import { useTheme } from "@/hooks/use-theme";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Home, FileText, Calendar as CalendarIcon, Shield, Building2, Settings,
@@ -109,16 +110,13 @@ const badgeStyles: Record<string, string> = {
 };
 
 const Empresas = () => {
-  const [isDark, setIsDark] = useState(true);
+  const { isDark, setIsDark } = useTheme();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [filter, setFilter] = useState<"todos" | "pendentes" | "clientes">("todos");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedEmpresa, setSelectedEmpresa] = useState<Empresa | null>(null);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", isDark);
-  }, [isDark]);
 
   const filtered = useMemo(() => {
     return empresas.filter(e => {

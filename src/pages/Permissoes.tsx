@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useTheme } from "@/hooks/use-theme";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Home, FileText, Calendar as CalendarIcon, Shield, Building2, Settings,
@@ -48,15 +49,12 @@ const initState = (): PermState => {
 };
 
 const Permissoes = () => {
-  const [isDark, setIsDark] = useState(true);
+  const { isDark, setIsDark } = useTheme();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [permState, setPermState] = useState<PermState>(initState);
   const [searchQuery, setSearchQuery] = useState("");
   const navigate = useNavigate();
 
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", isDark);
-  }, [isDark]);
 
   const togglePerm = (perm: string, role: string) => {
     setPermState(prev => ({

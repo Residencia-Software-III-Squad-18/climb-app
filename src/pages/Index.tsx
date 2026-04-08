@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useTheme } from "@/hooks/use-theme";
 import { motion, AnimatePresence } from "framer-motion";
 import { Eye, EyeOff, ArrowRight, Moon, Sun } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
@@ -6,16 +7,13 @@ import ClimbLogo from "@/components/login/ClimbLogo";
 import BackgroundEffects from "@/components/login/BackgroundEffects";
 
 const Index = () => {
-  const [isDark, setIsDark] = useState(true);
+  const { isDark, setIsDark } = useTheme();
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", isDark);
-  }, [isDark]);
 
   return (
     <div className="relative min-h-screen bg-background text-foreground transition-colors duration-500 overflow-hidden">

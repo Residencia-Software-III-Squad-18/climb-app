@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
+import { useTheme } from "@/hooks/use-theme";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Home, FileText, Calendar as CalendarIcon, Shield, Building2, Settings,
@@ -95,7 +96,7 @@ const buildCalendarGrid = () => {
 const weekDayDates = [9, 10, 11, 12, 13];
 
 const Agenda = () => {
-  const [isDark, setIsDark] = useState(true);
+  const { isDark, setIsDark } = useTheme();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeView, setActiveView] = useState<"mes" | "semana" | "lista" | "kanban">("mes");
   const [kanbanCards, setKanbanCards] = useState(initialKanbanCards);
@@ -106,9 +107,6 @@ const Agenda = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const navigate = useNavigate();
 
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", isDark);
-  }, [isDark]);
 
   const calendarGrid = useMemo(() => buildCalendarGrid(), []);
   const eventDays = useMemo(() => new Set(Object.keys(monthEvents).map(Number)), []);

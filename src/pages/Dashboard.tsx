@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
+import { useTheme } from "@/hooks/use-theme";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -292,7 +293,7 @@ const SectionHeader = ({ title, subtitle, onMaximize, isMaximized, extra }: {
    ══════════════════════════════════════════════════ */
 
 const Dashboard = () => {
-  const [isDark, setIsDark] = useState(true);
+  const { isDark, setIsDark } = useTheme();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeNav, setActiveNav] = useState(0);
   const navigate = useNavigate();
@@ -317,9 +318,6 @@ const Dashboard = () => {
   const [showAddMeeting, setShowAddMeeting] = useState(false);
   const [selectedStage, setSelectedStage] = useState<{ label: string; docs: string[] } | null>(null);
 
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", isDark);
-  }, [isDark]);
 
   const containerVariants = {
     hidden: { opacity: 0 },

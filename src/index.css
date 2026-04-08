@@ -6,39 +6,39 @@
 
 @layer base {
   :root {
-    --background: 45 15% 96%;
-    --foreground: 220 20% 14%;
-    --card: 42 12% 93%;
-    --card-foreground: 220 20% 14%;
-    --popover: 42 12% 93%;
-    --popover-foreground: 220 20% 14%;
-    --primary: 195 55% 32%;
+    --background: 210 20% 98%;
+    --foreground: 216 28% 12%;
+    --card: 210 18% 96%;
+    --card-foreground: 216 28% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 216 28% 12%;
+    --primary: 195 60% 28%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 210 10% 88%;
+    --secondary: 210 14% 90%;
     --secondary-foreground: 220 18% 18%;
-    --muted: 220 8% 88%;
-    --muted-foreground: 215 10% 46%;
-    --accent: 178 35% 36%;
+    --muted: 215 14% 91%;
+    --muted-foreground: 215 12% 42%;
+    --accent: 178 42% 32%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 12% 84%;
-    --input: 220 12% 82%;
-    --ring: 195 55% 32%;
+    --border: 215 18% 82%;
+    --input: 215 16% 80%;
+    --ring: 195 60% 28%;
     --radius: 0.5rem;
 
-    --climb-teal: 178 35% 36%;
+    --climb-teal: 178 42% 32%;
     --climb-navy: 210 25% 20%;
-    --surface: 42 10% 94%;
+    --surface: 210 16% 95%;
 
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-background: 210 18% 97%;
+    --sidebar-foreground: 216 20% 22%;
+    --sidebar-primary: 216 28% 12%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 18% 94%;
+    --sidebar-accent-foreground: 216 28% 12%;
+    --sidebar-border: 215 16% 88%;
+    --sidebar-ring: 195 60% 28%;
   }
 
   .dark {
@@ -56,7 +56,7 @@
     --muted-foreground: 215 12% 50%;
     --accent: 178 35% 40%;
     --accent-foreground: 216 28% 7%;
-    --destructive: 0 62.8% 30.6%;
+    --destructive: 0 55% 45%;
     --destructive-foreground: 210 40% 98%;
     --border: 216 18% 18%;
     --input: 216 18% 18%;
@@ -90,5 +90,19 @@
 @layer utilities {
   .font-mono-data {
     font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+/* Global green focus ring for inputs */
+@layer base {
+  input:focus,
+  textarea:focus,
+  select:focus,
+  [contenteditable]:focus {
+    @apply ring-2 ring-accent/40 border-accent/50 outline-none;
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+  input[type="checkbox"]:focus {
+    @apply ring-2 ring-accent/40 ring-offset-1 ring-offset-background;
   }
 }

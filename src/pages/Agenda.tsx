@@ -80,7 +80,6 @@ const initialKanbanCards: Record<string, KanbanCard[]> = {
 
 const DOW = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"];
 const WEEK_DAYS = ["SEG", "TER", "QUA", "QUI", "SEX"];
-const HOURS = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"];
 
 const buildCalendarGrid = () => {
   const firstDayOfWeek = 0;

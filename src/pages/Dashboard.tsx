@@ -814,9 +814,9 @@ const Dashboard = () => {
                     <motion.p className="text-[28px] font-bold text-foreground tracking-tight leading-none mb-1.5" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5, delay: 0.3 + i * 0.1 }}>
                       {stat.value}
                     </motion.p>
-                    <p className="text-[11px] text-muted-foreground/40 flex items-center gap-1">
-                      {stat.trend === "up" && <ArrowUpRight className="w-3 h-3 text-accent" />}
-                      {stat.trend === "down" && <ArrowDownRight className="w-3 h-3 text-destructive" />}
+                    <p className="text-[13px] text-muted-foreground/50 flex items-center gap-1">
+                      {stat.trend === "up" && <ArrowUpRight className="w-3.5 h-3.5 text-accent" />}
+                      {stat.trend === "down" && <ArrowDownRight className="w-3.5 h-3.5 text-destructive" />}
                       {stat.change}
                     </p>
                   </div>

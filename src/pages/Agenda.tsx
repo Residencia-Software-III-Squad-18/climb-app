@@ -224,7 +224,7 @@ const Agenda = () => {
                           <motion.div key={i} className={`min-h-[100px] border-b border-r border-border/10 p-1.5 cursor-pointer transition-all duration-200 ${day === null ? "bg-muted/5" : isSelected ? "bg-accent/5 ring-1 ring-inset ring-accent/20" : isToday ? "bg-accent/[0.03]" : "hover:bg-muted/10"}`} onClick={() => day && setSelectedDay(day === selectedDay ? null : day)} whileTap={day ? { scale: 0.98 } : undefined}>
                             {day && (
                               <>
-                                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] mb-1 ${isToday ? "bg-accent text-accent-foreground font-bold" : "text-foreground/60 font-medium"}`}>{day}</div>
+                                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] mb-1 ${isToday ? "bg-accent text-accent-foreground font-bold" : "text-foreground/50 font-medium"}`}>{day}</div>
                                 {events.map(ev => (
                                   <motion.div key={ev.id} className={`rounded px-1.5 py-0.5 mb-0.5 text-[9px] font-medium truncate cursor-pointer ${ev.type === "virtual" ? "bg-accent/10 text-accent" : "bg-primary/10 text-primary"}`} whileHover={{ scale: 1.02 }} title={`${ev.time} ${ev.title}`}>
                                     {ev.time} {ev.title}
@@ -267,7 +267,7 @@ const Agenda = () => {
                         <div className="space-y-2">
                           {monthEvents[selectedDay].map(ev => (
                             <motion.div key={ev.id} className="rounded-lg border border-border/20 bg-background/50 p-3" initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}>
-                              <p className="text-[12px] font-medium text-foreground mb-1">{ev.title}</p>
+                              <p className="text-[12px] font-medium text-foreground/80 mb-1">{ev.title}</p>
                               <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50 mb-1"><Clock className="w-3 h-3" /><span>{ev.time} – {ev.endTime}</span></div>
                               <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50 mb-1"><Building2 className="w-3 h-3" /><span>{ev.empresa}</span></div>
                               {ev.local && <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50"><MapPin className="w-3 h-3" /><span>{ev.local}</span></div>}

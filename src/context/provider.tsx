@@ -1,13 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 "use client";
 import type { PropsWithChildren } from "react";
-import {
-  createContext,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { createContext, useCallback, useEffect, useMemo } from "react";
 
 import { api } from "@/api";
 import { setUnauthorizedCallback } from "@/api";
@@ -18,12 +12,30 @@ import { destroyCookie, parseCookies, setCookie } from "nookies";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
 
+import { useRefreshToken } from "../hooks/useAuth/useRefreshToken";
 import { useSignIn } from "../hooks/useAuth/useSignIn";
 import type { SignInCredentials } from "../hooks/useAuth/useSignIn";
 
 interface DecodedToken {
   roles: string[];
 }
+
+// Variável global para armazenar o timer de refresh
+let refreshTokenInterval: NodeJS.Timeout | null = null;
+let tokenExpiresAt: number | null = null;
+
+// Função para calcular tempo de expiração
+const calculateExpiresAt = (expiresIn: number): number => {
+  return Date.now() + expiresIn;
+};
+
+// Função para verificar se o token está perto de expirar (5 minutos antes)
+const isTokenNearExpiration = (): boolean => {
+  if (!tokenExpiresAt) return false;
+  const timeUntilExpiration = tokenExpiresAt - Date.now();
+  const fiveMinutesInMs = 5 * 60 * 1000;
+  return timeUntilExpiration <= fiveMinutesInMs;
+};
 
 export interface AuthContextProps {
   handleSignIn: (credentials: SignInCredentials) => void;
@@ -37,85 +49,154 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [, setLocation] = useLocation();
 
   const { mutateAsync: signIn, isPending } = useSignIn();
-  const { setUserData, clearSession } = useAuthStore();
+  const { mutateAsync: refreshToken } = useRefreshToken();
+  const { clearSession, setBasicUserData } = useAuthStore();
   const { setRole, clearRole } = useUserRoleStore();
-  const [email, setEmail] = useState("");
 
-  useEffect(() => {
-    setUnauthorizedCallback(() => {
-      destroyCookie(undefined, "@CLIMB:T");
-      clearSession();
-      clearRole();
-      setLocation("/auth");
-    });
+  // Função para fazer logout (extraída para reutilização)
+  const handleLogout = useCallback(() => {
+    // Limpar timer
+    if (refreshTokenInterval) {
+      clearInterval(refreshTokenInterval);
+      refreshTokenInterval = null;
+    }
+
+    destroyCookie(undefined, "@CLIMB:T");
+    destroyCookie(undefined, "@CLIMB:R");
+    destroyCookie(undefined, "email");
+    clearSession();
+    clearRole();
+    tokenExpiresAt = null;
+    setLocation("/auth");
   }, [clearRole, clearSession, setLocation]);
 
-  useEffect(() => {
-    const { "@CLIMB:T": accessToken } = parseCookies();
+  // Função para fazer refresh do token
+  const performTokenRefresh = useCallback(async () => {
+    try {
+      const { "@CLIMB:R": refreshTokenCookie } = parseCookies();
 
-    if (accessToken) {
+      if (!refreshTokenCookie) {
+        throw new Error("Refresh token não encontrado");
+      }
+
+      const response = await refreshToken(refreshTokenCookie);
+      const { accessToken, expiresIn } = response;
+      const isProduction = process.env.NODE_ENV === "production";
+
+      // Atualizar token no cookie
+      setCookie(undefined, "@CLIMB:T", accessToken, {
+        maxAge: 60 * 60 * 24 * 7,
+        path: "/",
+        secure: isProduction,
+        sameSite: "strict",
+      });
+
+      // Atualizar header da API
       api.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
 
-      const fetchUserData = async () => {
-        try {
-          if (email) {
-            const { data } = await api.get(`/usuario/email/${email}`);
-            setUserData(data);
-          }
-        } catch (error) {
-          console.error(error);
-        }
-      };
+      // Atualizar tempo de expiração
+      tokenExpiresAt = calculateExpiresAt(expiresIn);
 
-      fetchUserData();
+      return true;
+    } catch {
+      // Se refresh falhar, fazer logout
+      handleLogout();
+      return false;
     }
-  }, [email, setUserData]);
+  }, [refreshToken, handleLogout]);
+
+  // Função para iniciar o timer de refresh automático
+  const setupRefreshTimer = useCallback(() => {
+    // Limpar timer anterior se existir
+    if (refreshTokenInterval) {
+      clearInterval(refreshTokenInterval);
+    }
+
+    // Verificar a cada 30 segundos se o token precisa ser renovado
+    refreshTokenInterval = setInterval(async () => {
+      if (isTokenNearExpiration()) {
+        await performTokenRefresh();
+      }
+    }, 30 * 1000); // 30 segundos
+  }, [performTokenRefresh]);
+
+  // Configurar callback para 401
+  useEffect(() => {
+    setUnauthorizedCallback(async () => {
+      return await performTokenRefresh();
+    });
+  }, [performTokenRefresh]);
 
   const handleSignIn = useCallback(
     async ({ email, senha }: SignInCredentials) => {
       try {
         const data = await signIn({ email, senha });
-        const { accessToken } = data;
+        const {
+          accessToken,
+          refreshToken: refreshTokenData,
+          expiresIn,
+          usuario,
+        } = data;
+
+        // Email vem em data.usuario.email
+        const userEmail = usuario?.email || email;
+
         const isProduction = process.env.NODE_ENV === "production";
 
-        setCookie(undefined, "email", data.email, {
-          maxAge: 60 * 60 * 24 * 7,
-          path: "/",
-          secure: isProduction,
-          sameSite: "strict",
-        });
-
+        // Salvar access token
         setCookie(undefined, "@CLIMB:T", accessToken, {
           maxAge: 60 * 60 * 24 * 7,
           path: "/",
           secure: isProduction,
           sameSite: "strict",
         });
-        setEmail(email);
+
+        // Salvar refresh token em cookie mais seguro
+        setCookie(undefined, "@CLIMB:R", refreshTokenData, {
+          maxAge: 60 * 60 * 24 * 7, // 7 dias
+          path: "/",
+          secure: isProduction,
+          sameSite: "strict",
+        });
+
+        // Salvar email
+        setCookie(undefined, "email", userEmail, {
+          maxAge: 60 * 60 * 24 * 7,
+          path: "/",
+          secure: isProduction,
+          sameSite: "strict",
+        });
+
+        // Atualizar header da API
         api.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
 
-        const decoded = jwtDecode<DecodedToken>(accessToken);
+        tokenExpiresAt = calculateExpiresAt(expiresIn);
 
+        // Decodificar JWT para pegar roles
+        const decoded = jwtDecode<DecodedToken>(accessToken);
         const role = decoded.roles?.[0]?.toUpperCase();
         setRole(role);
+
+        // Salvar dados do usuário no store
+        if (usuario) {
+          setBasicUserData(usuario);
+        }
+
+        // Iniciar timer de refresh automático
+        setupRefreshTimer();
+
+        // Navegar diretamente para dashboard (dados já estão salvos)
         setLocation("/dashboard");
-      } catch (error) {
-        console.error(error);
+      } catch {
         toast.error("Email ou senha inválidos");
       }
     },
-    [setLocation, setRole, signIn]
+    [signIn, setRole, setBasicUserData, setupRefreshTimer, setLocation]
   );
 
   const signOut = useCallback(() => {
-    destroyCookie(undefined, "@CLIMB:T");
-    destroyCookie(undefined, "email");
-    localStorage.clear();
-    sessionStorage.clear();
-    clearSession();
-    clearRole();
-    setLocation("/auth");
-  }, [clearRole, clearSession, setLocation]);
+    handleLogout();
+  }, [handleLogout]);
 
   const cachedValue = useMemo(() => {
     return {

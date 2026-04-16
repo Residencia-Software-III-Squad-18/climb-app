@@ -4,7 +4,7 @@ import { persist } from "zustand/middleware";
 interface Pessoa {
   id: number;
   cpfCnpj: string;
-  nome: string;
+  nomeCompleto: string;
   nomeMae: string | null;
   nomePai: string | null;
   sexo: string | null;
@@ -21,12 +21,21 @@ export interface UserData {
   cargo: string;
   dataCriacao: string;
   dataAtualizacao: string;
+  nomeCompleto: string;
   pessoa: Pessoa;
+}
+
+export interface BasicUserData {
+  id?: number;
+  email?: string;
+  nomeCompleto?: string;
 }
 
 interface AuthState {
   userData: UserData | null;
+  basicUserData: BasicUserData | null;
   setUserData: (userData: UserData) => void;
+  setBasicUserData: (userData: BasicUserData) => void;
   clearSession: () => void;
 }
 
@@ -34,13 +43,18 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
       userData: null,
+      basicUserData: null,
 
       setUserData: (userData) => {
         set({ userData });
       },
 
+      setBasicUserData: (basicUserData) => {
+        set({ basicUserData });
+      },
+
       clearSession: () => {
-        set({ userData: null });
+        set({ userData: null, basicUserData: null });
       },
     }),
     {

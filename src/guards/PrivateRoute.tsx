@@ -1,8 +1,7 @@
 import { Route, Redirect } from "wouter";
+import { parseCookies } from "nookies";
 
 import { useAuthStore } from "../store/useAuthStore";
-
-
 
 interface PrivateRouteProps {
   path: string;
@@ -13,14 +12,18 @@ export function PrivateRoute({
   path,
   component: Component,
 }: PrivateRouteProps) {
-  const { userData } = useAuthStore();
-  const token = localStorage.getItem("@CLIMB:T");
+  const { basicUserData } = useAuthStore();
+  const localToken = localStorage.getItem("@CLIMB:T");
+  const cookies = parseCookies();
+  const cookieToken = cookies["@CLIMB:T"];
+
+  const isAuthenticated = Boolean(basicUserData || localToken || cookieToken);
 
   return (
     <Route path={path}>
       {(params) => {
-        if (!userData && !token) {
-          return <Redirect to="/auth" />;
+        if (!isAuthenticated) {
+          return <Redirect to="/" />;
         }
 
         return <Component {...params} />;

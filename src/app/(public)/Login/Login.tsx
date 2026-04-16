@@ -3,10 +3,10 @@ import { FcGoogle } from "react-icons/fc";
 
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
+import InvestmentGraphics from "@/components/InvestimentGraphic";
 
 import { useAuthContext } from "@/context";
 import { ClimbLogo } from "@/icons/ClimbLogo";
-import InvestmentGraphics from "@/components/InvestimentGraphic";
 import { useThemeStore } from "@/store/useThemeStore";
 
 export function Login() {

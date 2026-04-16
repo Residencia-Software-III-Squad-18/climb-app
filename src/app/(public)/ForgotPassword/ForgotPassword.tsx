@@ -1,10 +1,12 @@
 import { useForm } from "react-hook-form";
+import { FaArrowRight } from "react-icons/fa6";
+import { IoArrowBack } from "react-icons/io5";
+
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
-import { useThemeStore } from "@/store/useThemeStore";
+
 import { ClimbLogo } from "@/icons/ClimbLogo";
-import { IoArrowBack } from "react-icons/io5";
-import { FaArrowRight } from "react-icons/fa6";
+import { useThemeStore } from "@/store/useThemeStore";
 
 export function ForgotPassword() {
   const { control, handleSubmit } = useForm<{ email: string }>({

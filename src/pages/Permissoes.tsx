@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import ClimbLogo from "@/components/login/ClimbLogo";
-
+import { usePermissoes } from "@/services";
 const navItems = [
   { icon: Home, label: "Home", path: "/dashboard" },
   { icon: FileText, label: "Contratos", path: "/contratos" },
@@ -18,52 +18,19 @@ const navItems = [
   { icon: Settings, label: "Configurações", path: "/dashboard" },
 ];
 
-const permissions = [
-  "Visualização, criação, edição e exclusão de Contratos",
-  "Visualização, criação, edição e revisão de Campos",
-  "Visualização, criação, edição e revisão de Parâmetros Jurídicos",
-  "Aplicação de nível de complexidade de contratos",
-  "Edição restrita (somente ação com necessidade de análise permitida)",
-  "Agendamento de Reuniões",
-  "Visualização, criação, edição e exclusão de Relatórios",
-  "Upload de arquivos",
-  "Download de arquivos",
-];
-
-const roles = [
-  "CEO", "MEMBRO DO CONSELHO", "CSO", "CMO", "CFO", "AN1 - TRAINEE", "AN1 - JUNIOR", "AN - PLENO", "AN1 - SÊNIOR", "ANALISTA DE BPO FINANCEIRO", "CUSTODIO"
-];
-
-type PermState = Record<string, Record<string, boolean>>;
-
-const initState = (): PermState => {
-  const s: PermState = {};
-  permissions.forEach(p => {
-    s[p] = {};
-    roles.forEach(r => {
-      // CEO + CSO get all, others random
-      s[p][r] = r === "CEO" || r === "CSO" ? true : Math.random() > 0.6;
-    });
-  });
-  return s;
-};
-
 const Permissoes = () => {
   const { isDark, setIsDark } = useTheme();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [permState, setPermState] = useState<PermState>(initState);
   const [searchQuery, setSearchQuery] = useState("");
   const navigate = useNavigate();
 
+  // Fetch permissoes from API
+  const { data: permissoes = [], isLoading, error } = usePermissoes();
 
-  const togglePerm = (perm: string, role: string) => {
-    setPermState(prev => ({
-      ...prev,
-      [perm]: { ...prev[perm], [role]: !prev[perm][role] },
-    }));
-  };
-
-  const filteredPerms = permissions.filter(p => p.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filtered = permissoes.filter(p => 
+    p.nome?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.codigo?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div className="relative min-h-screen bg-background text-foreground transition-colors duration-500 overflow-hidden">
@@ -135,49 +102,33 @@ const Permissoes = () => {
                   <thead>
                     <tr className="border-b border-border/15">
                       <th className="text-left px-4 py-3 text-[10px] font-semibold text-muted-foreground/50 tracking-wider uppercase w-[320px] sticky left-0 bg-card/90 backdrop-blur-sm z-10">Permissões</th>
-                      {roles.map(role => (
-                        <th key={role} className="px-2 py-3 text-center text-[8px] font-semibold text-muted-foreground/50 tracking-wider uppercase whitespace-nowrap">{role}</th>
-                      ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredPerms.map((perm, pi) => (
-                      <motion.tr
-                        key={perm}
-                        className="border-b border-border/8 hover:bg-muted/10 transition-colors"
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: pi * 0.03 }}
-                      >
-                        <td className="px-4 py-3 text-[11px] text-foreground/80 leading-relaxed sticky left-0 bg-card/90 backdrop-blur-sm z-10">{perm}</td>
-                        {roles.map(role => (
-                          <td key={role} className="px-2 py-3 text-center">
-                            <motion.button
-                              onClick={() => togglePerm(perm, role)}
-                              className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all duration-200 mx-auto ${
-                                permState[perm]?.[role]
-                                  ? "bg-accent border-accent text-accent-foreground"
-                                  : "border-border/30 hover:border-muted-foreground/30"
-                              }`}
-                              whileHover={{ scale: 1.15 }}
-                              whileTap={{ scale: 0.9 }}
-                            >
-                              {permState[perm]?.[role] && (
-                                <motion.svg
-                                  initial={{ scale: 0 }}
-                                  animate={{ scale: 1 }}
-                                  className="w-3 h-3"
-                                  viewBox="0 0 12 12"
-                                  fill="none"
-                                >
-                                  <path d="M2 6L5 9L10 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                </motion.svg>
-                              )}
-                            </motion.button>
+                    {filtered.length === 0 ? (
+                      <tr>
+                        <td colSpan={10} className="text-center py-12 text-[12px] text-muted-foreground/30">
+                          {isLoading ? "Carregando permissões..." : error ? "Erro ao carregar" : "Nenhuma permissão encontrada"}
+                        </td>
+                      </tr>
+                    ) : (
+                      filtered.map((perm, pi) => (
+                        <motion.tr
+                          key={perm.id}
+                          className="border-b border-border/8 hover:bg-muted/10 transition-colors"
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: pi * 0.03 }}
+                        >
+                          <td className="px-4 py-3 text-[11px] text-foreground/80 leading-relaxed sticky left-0 bg-card/90 backdrop-blur-sm z-10">
+                            <div>
+                              <p className="font-medium">{perm.nome}</p>
+                              <p className="text-muted-foreground/40 text-[9px]">{perm.descricao}</p>
+                            </div>
                           </td>
-                        ))}
-                      </motion.tr>
-                    ))}
+                        </motion.tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { useTheme } from "@/hooks/use-theme";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -6,8 +6,20 @@ import {
   LogOut, Sun, Moon, ChevronLeft, ChevronRight, Plus, Search,
   Clock, MapPin, X, GripVertical, Video, FileCheck
 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import ClimbLogo from "@/components/login/ClimbLogo";
+import { clearAuthSession } from "@/services/session";
+import { clearGoogleOAuthSession } from "@/services/google-oauth";
+import { toast } from "@/components/ui/sonner";
+import {
+  createReuniao,
+  listEmpresas,
+  listGoogleCalendarEvents,
+  listReunioes,
+  type EmpresaOption,
+  type ReuniaoApi,
+  type ReuniaoPayload,
+} from "@/services/agenda";
 
 const navItems = [
   { icon: Home, label: "Home", path: "/dashboard" },
@@ -28,6 +40,7 @@ interface AgendaEvent {
   local?: string;
   type: "virtual" | "presencial";
   color: string;
+  source?: "backend" | "google" | "local";
 }
 
 interface KanbanCard {
@@ -39,7 +52,7 @@ interface KanbanCard {
   priority: "alta" | "media" | "baixa";
 }
 
-const monthEvents: Record<number, AgendaEvent[]> = {
+const fallbackEvents: Record<number, AgendaEvent[]> = {
   2: [{ id: "m1", title: "Kickoff Projeto", time: "09:00", endTime: "10:00", empresa: "Nova Capital", local: "Google Meet", type: "virtual", color: "accent" }],
   5: [{ id: "m2", title: "Treinamento Interno", time: "14:00", endTime: "16:00", empresa: "Climb Interno", local: "Auditório", type: "presencial", color: "primary" }],
   6: [{ id: "m3", title: "Alinhamento Semanal", time: "10:00", endTime: "10:30", empresa: "Apex Ventures", local: "Zoom", type: "virtual", color: "accent" }],
@@ -82,9 +95,9 @@ const initialKanbanCards: Record<string, KanbanCard[]> = {
 const DOW = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"];
 const WEEK_DAYS = ["SEG", "TER", "QUA", "QUI", "SEX"];
 
-const buildCalendarGrid = () => {
-  const firstDayOfWeek = 0;
-  const daysInMonth = 31;
+const buildCalendarGrid = (date: Date) => {
+  const firstDayOfWeek = new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+  const daysInMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
   const grid: (number | null)[] = [];
   for (let i = 0; i < firstDayOfWeek; i++) grid.push(null);
   for (let d = 1; d <= daysInMonth; d++) grid.push(d);
@@ -92,8 +105,82 @@ const buildCalendarGrid = () => {
   return grid;
 };
 
-/* Map week days (Mon-Fri) to March dates for "current week" simulation (March 9-13) */
-const weekDayDates = [9, 10, 11, 12, 13];
+const today = new Date();
+
+const dateInputValue = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const formatMonthTitle = (date: Date) =>
+  new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(date);
+
+const formatMonthShort = (date: Date) =>
+  new Intl.DateTimeFormat("pt-BR", { month: "short" }).format(date).replace(".", "").toUpperCase();
+
+const parseTime = (value?: string) => (value ? value.slice(0, 5) : "09:00");
+
+const addOneHour = (time: string) => {
+  const [hour, minute] = time.split(":").map(Number);
+  return `${String((hour + 1) % 24).padStart(2, "0")}:${String(minute || 0).padStart(2, "0")}`;
+};
+
+const groupEventsByDay = (events: AgendaEvent[]) =>
+  events.reduce<Record<number, AgendaEvent[]>>((acc, event) => {
+    const day = Number(event.id.split(":")[1]);
+    acc[day] = [...(acc[day] || []), event].sort((a, b) => a.time.localeCompare(b.time));
+    return acc;
+  }, {});
+
+const mapReuniaoToEvent = (reuniao: ReuniaoApi, visibleMonth: Date): AgendaEvent | null => {
+  if (!reuniao.data) return null;
+  const [year, month, day] = reuniao.data.split("-").map(Number);
+  if (year !== visibleMonth.getFullYear() || month !== visibleMonth.getMonth() + 1) return null;
+  const time = parseTime(reuniao.hora);
+
+  return {
+    id: `backend:${day}:${reuniao.idReuniao}`,
+    title: reuniao.titulo,
+    time,
+    endTime: addOneHour(time),
+    empresa: reuniao.empresa?.nomeFantasia || reuniao.empresa?.razaoSocial || "Empresa",
+    local: reuniao.local || (reuniao.presencial ? "Presencial" : "Google Meet"),
+    type: reuniao.presencial ? "presencial" : "virtual",
+    color: reuniao.presencial ? "primary" : "accent",
+    source: "backend",
+  };
+};
+
+const mapGoogleToEvent = (
+  event: Awaited<ReturnType<typeof listGoogleCalendarEvents>>[number],
+  visibleMonth: Date,
+): AgendaEvent | null => {
+  const startValue = event.start?.dateTime || event.start?.date;
+  if (!startValue) return null;
+
+  const start = new Date(startValue);
+  if (Number.isNaN(start.getTime())) return null;
+  if (start.getFullYear() !== visibleMonth.getFullYear() || start.getMonth() !== visibleMonth.getMonth()) return null;
+
+  const endValue = event.end?.dateTime || event.end?.date;
+  const end = endValue ? new Date(endValue) : null;
+  const time = event.start?.date ? "00:00" : parseTime(start.toTimeString());
+  const endTime = end && !Number.isNaN(end.getTime()) ? parseTime(end.toTimeString()) : addOneHour(time);
+
+  return {
+    id: `google:${start.getDate()}:${event.id}`,
+    title: event.summary || "Evento sem titulo",
+    time,
+    endTime,
+    empresa: "Google Calendar",
+    local: event.hangoutLink || event.location || "Google Calendar",
+    type: event.hangoutLink ? "virtual" : "presencial",
+    color: event.hangoutLink ? "accent" : "primary",
+    source: "google",
+  };
+};
 
 const Agenda = () => {
   const { isDark, setIsDark } = useTheme();
@@ -101,15 +188,57 @@ const Agenda = () => {
   const [activeView, setActiveView] = useState<"mes" | "semana" | "lista" | "kanban">("mes");
   const [kanbanCards, setKanbanCards] = useState(initialKanbanCards);
   const [showAddEvent, setShowAddEvent] = useState(false);
+  const [visibleMonth, setVisibleMonth] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
+  const [monthEvents, setMonthEvents] = useState<Record<number, AgendaEvent[]>>({});
+  const [empresas, setEmpresas] = useState<EmpresaOption[]>([]);
+  const [isLoadingEvents, setIsLoadingEvents] = useState(true);
+  const [isSavingEvent, setIsSavingEvent] = useState(false);
+  const [eventForm, setEventForm] = useState({
+    titulo: "",
+    empresaId: "",
+    data: dateInputValue(today),
+    hora: "09:00",
+    presencial: false,
+    local: "",
+    pauta: "",
+  });
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [draggedCard, setDraggedCard] = useState<{ card: KanbanCard; fromCol: string } | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const navigate = useNavigate();
 
+  const handleLogout = () => {
+    clearAuthSession();
+    clearGoogleOAuthSession();
+    navigate("/", { replace: true });
+  };
 
-  const calendarGrid = useMemo(() => buildCalendarGrid(), []);
-  const eventDays = useMemo(() => new Set(Object.keys(monthEvents).map(Number)), []);
+
+  const calendarGrid = useMemo(() => buildCalendarGrid(visibleMonth), [visibleMonth]);
+  const monthTitle = useMemo(() => formatMonthTitle(visibleMonth), [visibleMonth]);
+  const monthShort = useMemo(() => formatMonthShort(visibleMonth), [visibleMonth]);
+  const currentMonthEvents = useMemo(() => {
+    const hasSyncedEvents = Object.keys(monthEvents).length > 0;
+    return hasSyncedEvents || !isLoadingEvents ? monthEvents : fallbackEvents;
+  }, [isLoadingEvents, monthEvents]);
+  const eventDays = useMemo(() => new Set(Object.keys(currentMonthEvents).map(Number)), [currentMonthEvents]);
+  const todayDay = today.getFullYear() === visibleMonth.getFullYear() && today.getMonth() === visibleMonth.getMonth()
+    ? today.getDate()
+    : null;
+  const weekDayDates = useMemo(() => {
+    const anchor = selectedDay || todayDay || 1;
+    const date = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), anchor);
+    const day = date.getDay();
+    const mondayOffset = day === 0 ? -6 : 1 - day;
+    const monday = new Date(date);
+    monday.setDate(date.getDate() + mondayOffset);
+    return Array.from({ length: 5 }, (_, index) => {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + index);
+      return d.getMonth() === visibleMonth.getMonth() ? d.getDate() : null;
+    });
+  }, [selectedDay, todayDay, visibleMonth]);
 
   const handleDragStart = (card: KanbanCard, fromCol: string) => setDraggedCard({ card, fromCol });
   const handleDragOver = (e: React.DragEvent, colId: string) => { e.preventDefault(); setDragOverCol(colId); };
@@ -125,14 +254,109 @@ const Agenda = () => {
     setDragOverCol(null);
   };
 
+  const loadCalendarData = async () => {
+    try {
+      setIsLoadingEvents(true);
+      const firstDay = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1);
+      const lastDay = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 1);
+      const [empresaItems, reunioes, googleEvents] = await Promise.all([
+        listEmpresas(),
+        listReunioes().catch(() => []),
+        listGoogleCalendarEvents(firstDay.toISOString(), lastDay.toISOString()).catch((error) => {
+          toast.error(error instanceof Error ? error.message : "Nao foi possivel sincronizar o Google Calendar.");
+          return [];
+        }),
+      ]);
+
+      setEmpresas(empresaItems);
+      setEventForm((current) => current.empresaId || empresaItems.length === 0
+        ? current
+        : { ...current, empresaId: String(empresaItems[0].id) });
+      const backendAgendaEvents = reunioes
+        .map((reuniao) => mapReuniaoToEvent(reuniao, visibleMonth))
+        .filter((event): event is AgendaEvent => Boolean(event));
+      const googleAgendaEvents = googleEvents
+        .map((event) => mapGoogleToEvent(event, visibleMonth))
+        .filter((event): event is AgendaEvent => Boolean(event));
+
+      setMonthEvents(groupEventsByDay([...backendAgendaEvents, ...googleAgendaEvents]));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Nao foi possivel carregar a agenda.");
+    } finally {
+      setIsLoadingEvents(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadCalendarData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleMonth]);
+
+  const handleMonthChange = (delta: number) => {
+    setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() + delta, 1));
+    setSelectedDay(null);
+  };
+
+  const handleToday = () => {
+    setVisibleMonth(new Date(today.getFullYear(), today.getMonth(), 1));
+    setSelectedDay(today.getDate());
+    setEventForm((current) => ({ ...current, data: dateInputValue(today) }));
+  };
+
+  const openAddEvent = (day?: number) => {
+    const eventDate = day
+      ? new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), day)
+      : new Date();
+    setEventForm((current) => ({ ...current, data: dateInputValue(eventDate) }));
+    setShowAddEvent(true);
+  };
+
+  const handleCreateEvent = async () => {
+    const titulo = eventForm.titulo.trim();
+
+    if (!titulo || !eventForm.empresaId || !eventForm.data || !eventForm.hora) {
+      toast.error("Preencha pauta, empresa, data e hora.");
+      return;
+    }
+
+    const payload: ReuniaoPayload = {
+      titulo,
+      empresa: { idEmpresa: Number(eventForm.empresaId) },
+      data: eventForm.data,
+      hora: eventForm.hora,
+      presencial: eventForm.presencial,
+      local: eventForm.local.trim() || (eventForm.presencial ? "Presencial" : "Google Meet"),
+      pauta: eventForm.pauta.trim() || titulo,
+      status: "AGENDADA",
+    };
+
+    try {
+      setIsSavingEvent(true);
+      await createReuniao(payload);
+      toast.success("Reuniao agendada e enviada ao Google Calendar quando conectado.");
+      setShowAddEvent(false);
+      setEventForm({
+        titulo: "",
+        empresaId: eventForm.empresaId,
+        data: eventForm.data,
+        hora: "09:00",
+        presencial: false,
+        local: "",
+        pauta: "",
+      });
+      await loadCalendarData();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Nao foi possivel agendar a reuniao.");
+    } finally {
+      setIsSavingEvent(false);
+    }
+  };
+
   const priorityColors: Record<string, string> = {
     alta: "bg-destructive/10 text-destructive border-destructive/20",
     media: "bg-primary/10 text-primary border-primary/20",
     baixa: "bg-muted/30 text-muted-foreground border-border/20",
   };
-
-  const todayDay = 9;
-
 
   return (
     <div className="relative min-h-screen bg-background text-foreground transition-colors duration-500 overflow-hidden">
@@ -161,7 +385,7 @@ const Agenda = () => {
               <AnimatePresence mode="wait"><motion.div key={isDark ? "s" : "m"} initial={{ opacity: 0, rotate: -30 }} animate={{ opacity: 1, rotate: 0 }} exit={{ opacity: 0, rotate: 30 }} transition={{ duration: 0.2 }}>{isDark ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}</motion.div></AnimatePresence>
               {!sidebarCollapsed && <span className="text-[13px] font-medium">{isDark ? "Modo claro" : "Modo escuro"}</span>}
             </motion.button>
-            <Link to="/"><motion.button className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground/50 hover:text-destructive hover:bg-destructive/5 transition-all ${sidebarCollapsed ? "justify-center" : ""}`} whileTap={{ scale: 0.98 }}><LogOut className="w-[18px] h-[18px]" />{!sidebarCollapsed && <span className="text-[13px] font-medium">Sair</span>}</motion.button></Link>
+            <motion.button onClick={handleLogout} className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground/50 hover:text-destructive hover:bg-destructive/5 transition-all ${sidebarCollapsed ? "justify-center" : ""}`} whileTap={{ scale: 0.98 }}><LogOut className="w-[18px] h-[18px]" />{!sidebarCollapsed && <span className="text-[13px] font-medium">Sair</span>}</motion.button>
           </div>
           <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className="absolute -right-3 top-20 w-6 h-6 rounded-full bg-card border border-border/40 flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-accent/40 transition-all shadow-sm">
             {sidebarCollapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
@@ -185,7 +409,7 @@ const Agenda = () => {
                   </motion.button>
                 ))}
               </div>
-              <motion.button onClick={() => setShowAddEvent(true)} className="h-9 px-4 rounded-lg bg-accent text-accent-foreground text-[12px] font-semibold flex items-center gap-2 shadow-[0_2px_10px_-2px_hsl(var(--accent)/0.3)]" whileHover={{ scale: 1.02, y: -1 }} whileTap={{ scale: 0.98 }}>
+              <motion.button onClick={() => openAddEvent(selectedDay || undefined)} className="h-9 px-4 rounded-lg bg-accent text-accent-foreground text-[12px] font-semibold flex items-center gap-2 shadow-[0_2px_10px_-2px_hsl(var(--accent)/0.3)]" whileHover={{ scale: 1.02, y: -1 }} whileTap={{ scale: 0.98 }}>
                 <Plus className="w-3.5 h-3.5" /> Agendar
               </motion.button>
             </div>
@@ -198,24 +422,24 @@ const Agenda = () => {
 
           <div className="px-6 pb-6">
             <AnimatePresence mode="wait">
-              {/* ═══ MÊS ═══ */}
+              {/* MES */}
               {activeView === "mes" && (
                 <motion.div key="mes" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="flex gap-6">
                   <div className="flex-1 rounded-xl border border-border/25 bg-card/40 backdrop-blur-sm overflow-hidden">
                     <div className="flex items-center justify-between px-5 py-4 border-b border-border/15">
                       <div className="flex items-center gap-3">
-                        <motion.button className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/20" whileTap={{ scale: 0.9 }}><ChevronLeft className="w-4 h-4" /></motion.button>
-                        <h3 className="text-[15px] font-semibold text-foreground">Março 2026</h3>
-                        <motion.button className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/20" whileTap={{ scale: 0.9 }}><ChevronRight className="w-4 h-4" /></motion.button>
+                        <motion.button onClick={() => handleMonthChange(-1)} className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/20" whileTap={{ scale: 0.9 }}><ChevronLeft className="w-4 h-4" /></motion.button>
+                        <h3 className="text-[15px] font-semibold text-foreground capitalize">{monthTitle}</h3>
+                        <motion.button onClick={() => handleMonthChange(1)} className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/20" whileTap={{ scale: 0.9 }}><ChevronRight className="w-4 h-4" /></motion.button>
                       </div>
-                      <button className="h-7 px-3 rounded-md text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted/20 border border-border/25 transition-all">Hoje</button>
+                      <button onClick={handleToday} className="h-7 px-3 rounded-md text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted/20 border border-border/25 transition-all">Hoje</button>
                     </div>
                     <div className="grid grid-cols-7 border-b border-border/10">
                       {DOW.map(d => <div key={d} className="text-center py-2.5 text-[10px] font-medium text-muted-foreground/40 tracking-wider uppercase">{d}</div>)}
                     </div>
                     <div className="grid grid-cols-7">
                       {calendarGrid.map((day, i) => {
-                        const events = day ? monthEvents[day] || [] : [];
+                        const events = day ? currentMonthEvents[day] || [] : [];
                         const isToday = day === todayDay;
                         const isSelected = day === selectedDay;
                         return (
@@ -240,10 +464,10 @@ const Agenda = () => {
                   <div className="w-[280px] space-y-4 shrink-0">
                     <div className="rounded-xl border border-border/25 bg-card/40 backdrop-blur-sm p-4">
                       <div className="flex items-center justify-between mb-3">
-                        <h4 className="text-[13px] font-semibold text-foreground">Março 2026</h4>
+                        <h4 className="text-[13px] font-semibold text-foreground capitalize">{monthTitle}</h4>
                         <div className="flex gap-1">
-                          <button className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground/40 hover:text-foreground"><ChevronLeft className="w-3 h-3" /></button>
-                          <button className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground/40 hover:text-foreground"><ChevronRight className="w-3 h-3" /></button>
+                          <button onClick={() => handleMonthChange(-1)} className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground/40 hover:text-foreground"><ChevronLeft className="w-3 h-3" /></button>
+                          <button onClick={() => handleMonthChange(1)} className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground/40 hover:text-foreground"><ChevronRight className="w-3 h-3" /></button>
                         </div>
                       </div>
                       <div className="grid grid-cols-7 gap-0.5 mb-1">
@@ -261,12 +485,12 @@ const Agenda = () => {
 
                     <div className="rounded-xl border border-border/25 bg-card/40 backdrop-blur-sm p-4">
                       <h4 className="text-[12px] font-semibold text-foreground mb-3">Eventos do dia</h4>
-                      {selectedDay && monthEvents[selectedDay] ? (
+                      {selectedDay && currentMonthEvents[selectedDay] ? (
                         <div className="space-y-2">
-                          {monthEvents[selectedDay].map(ev => (
+                          {currentMonthEvents[selectedDay].map(ev => (
                             <motion.div key={ev.id} className="rounded-lg border border-border/20 bg-background/50 p-3" initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}>
                               <p className="text-[12px] font-medium text-foreground/80 mb-1">{ev.title}</p>
-                              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50 mb-1"><Clock className="w-3 h-3" /><span>{ev.time} – {ev.endTime}</span></div>
+                              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50 mb-1"><Clock className="w-3 h-3" /><span>{ev.time} - {ev.endTime}</span></div>
                               <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50 mb-1"><Building2 className="w-3 h-3" /><span>{ev.empresa}</span></div>
                               {ev.local && <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50"><MapPin className="w-3 h-3" /><span>{ev.local}</span></div>}
                               <div className={`inline-flex items-center gap-1 text-[8px] font-medium px-1.5 py-0.5 rounded-full mt-2 ${ev.type === "virtual" ? "bg-accent/10 text-accent" : "bg-primary/10 text-primary"}`}>
@@ -296,23 +520,23 @@ const Agenda = () => {
                 </motion.div>
               )}
 
-              {/* ═══ SEMANA — Card-based day columns ═══ */}
+              {/* SEMANA */}
               {activeView === "semana" && (
                 <motion.div key="semana" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
-                      <motion.button className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/20 border border-border/20" whileTap={{ scale: 0.9 }}><ChevronLeft className="w-4 h-4" /></motion.button>
-                      <button className="h-7 px-3 rounded-md text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted/20 border border-border/25 transition-all">Hoje</button>
-                      <motion.button className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/20 border border-border/20" whileTap={{ scale: 0.9 }}><ChevronRight className="w-4 h-4" /></motion.button>
+                      <motion.button onClick={() => handleMonthChange(-1)} className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/20 border border-border/20" whileTap={{ scale: 0.9 }}><ChevronLeft className="w-4 h-4" /></motion.button>
+                      <button onClick={handleToday} className="h-7 px-3 rounded-md text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted/20 border border-border/25 transition-all">Hoje</button>
+                      <motion.button onClick={() => handleMonthChange(1)} className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/20 border border-border/20" whileTap={{ scale: 0.9 }}><ChevronRight className="w-4 h-4" /></motion.button>
                     </div>
-                    <p className="text-[12px] text-muted-foreground/50">Semana de 9 a 13 de Março, 2026</p>
+                    <p className="text-[12px] text-muted-foreground/50 capitalize">Semana em {monthTitle}</p>
                   </div>
 
                   <div className="grid grid-cols-5 gap-4">
                     {WEEK_DAYS.map((d, i) => {
                       const dayNum = weekDayDates[i];
                       const isToday = dayNum === todayDay;
-                      const dayEvents = monthEvents[dayNum] || [];
+                      const dayEvents = dayNum ? currentMonthEvents[dayNum] || [] : [];
                       return (
                         <motion.div
                           key={d}
@@ -340,7 +564,7 @@ const Agenda = () => {
                                 <p className="text-[12px] font-semibold text-foreground/80 mb-1.5">{ev.title}</p>
                                 <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50 mb-1">
                                   <Clock className="w-3 h-3" />
-                                  <span>{ev.time} – {ev.endTime}</span>
+                                  <span>{ev.time} - {ev.endTime}</span>
                                 </div>
                                 <div className={`inline-flex items-center gap-1 text-[9px] font-medium px-1.5 py-0.5 rounded-full ${ev.type === "virtual" ? "bg-accent/15 text-accent" : "bg-primary/15 text-primary"}`}>
                                   {ev.type === "virtual" ? <Video className="w-2.5 h-2.5" /> : <MapPin className="w-2.5 h-2.5" />}
@@ -359,24 +583,24 @@ const Agenda = () => {
                 </motion.div>
               )}
 
-              {/* ═══ LISTA ═══ */}
+              {/* LISTA */}
               {activeView === "lista" && (
                 <motion.div key="list" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="rounded-xl border border-border/25 bg-card/40 backdrop-blur-sm overflow-hidden">
                   <div className="px-5 py-4 border-b border-border/15">
-                    <h3 className="text-[14px] font-semibold text-foreground">Todos os Eventos — Março 2026</h3>
+                    <h3 className="text-[14px] font-semibold text-foreground capitalize">Todos os Eventos - {monthTitle}</h3>
                   </div>
                   <div className="divide-y divide-border/10 max-h-[calc(100vh-240px)] overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-muted-foreground/20 [&::-webkit-scrollbar-thumb]:rounded-full">
-                    {Object.entries(monthEvents).sort(([a], [b]) => Number(a) - Number(b)).map(([day, events]) =>
+                    {Object.entries(currentMonthEvents).sort(([a], [b]) => Number(a) - Number(b)).map(([day, events]) =>
                       events.map(ev => (
                         <motion.div key={ev.id} className="px-5 py-3 flex items-center gap-4 hover:bg-muted/10 transition-colors cursor-pointer" initial={{ opacity: 0 }} animate={{ opacity: 1 }} whileHover={{ x: 2 }}>
                           <div className="w-10 text-center">
                             <p className="text-[16px] font-bold text-foreground">{day}</p>
-                            <p className="text-[9px] text-muted-foreground/40">MAR</p>
+                            <p className="text-[9px] text-muted-foreground/40">{monthShort}</p>
                           </div>
                           <div className="flex-1">
                             <p className="text-[13px] font-medium text-foreground">{ev.title}</p>
                             <div className="flex items-center gap-3 text-[10px] text-muted-foreground/50 mt-0.5">
-                              <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{ev.time} – {ev.endTime}</span>
+                              <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{ev.time} - {ev.endTime}</span>
                               <span className="flex items-center gap-1"><Building2 className="w-3 h-3" />{ev.empresa}</span>
                               {ev.local && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{ev.local}</span>}
                             </div>
@@ -392,7 +616,7 @@ const Agenda = () => {
                 </motion.div>
               )}
 
-              {/* ═══ KANBAN ═══ */}
+              {/* KANBAN */}
               {activeView === "kanban" && (
                 <motion.div key="kanban" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="grid grid-cols-4 gap-4">
                   {kanbanColumns.map((col, colIndex) => (
@@ -462,20 +686,35 @@ const Agenda = () => {
                 <motion.button onClick={() => setShowAddEvent(false)} className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors" whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}><X className="w-4 h-4" /></motion.button>
               </div>
               <div className="p-5 space-y-4">
-                <div><label className="text-[10px] text-muted-foreground/50 font-medium tracking-wider uppercase mb-1.5 block">Pauta</label><input type="text" placeholder="Pauta da reunião..." className="w-full h-10 px-3 rounded-lg border border-border/25 bg-background/50 text-[13px] outline-none focus:border-accent/40 transition-colors placeholder:text-muted-foreground/30" /></div>
-                <div><label className="text-[10px] text-muted-foreground/50 font-medium tracking-wider uppercase mb-1.5 block">Empresa</label><input type="text" placeholder="Nome da empresa" className="w-full h-10 px-3 rounded-lg border border-border/25 bg-background/50 text-[13px] outline-none focus:border-accent/40 transition-colors placeholder:text-muted-foreground/30" /></div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground/50 font-medium tracking-wider uppercase mb-1.5 block">Pauta</label>
+                  <input type="text" value={eventForm.titulo} onChange={e => setEventForm(current => ({ ...current, titulo: e.target.value, pauta: e.target.value }))} placeholder="Pauta da reuniao..." className="w-full h-10 px-3 rounded-lg border border-border/25 bg-background/50 text-[13px] outline-none focus:border-accent/40 transition-colors placeholder:text-muted-foreground/30" />
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground/50 font-medium tracking-wider uppercase mb-1.5 block">Empresa</label>
+                  <select value={eventForm.empresaId} onChange={e => setEventForm(current => ({ ...current, empresaId: e.target.value }))} className="w-full h-10 px-3 rounded-lg border border-border/25 bg-background/50 text-[13px] outline-none focus:border-accent/40 text-foreground">
+                    <option value="">Selecione uma empresa</option>
+                    {empresas.map(empresa => <option key={empresa.id} value={empresa.id}>{empresa.nomeFantasia || empresa.razaoSocial}</option>)}
+                  </select>
+                </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <div><label className="text-[10px] text-muted-foreground/50 font-medium tracking-wider uppercase mb-1.5 block">Data</label><input type="date" className="w-full h-10 px-3 rounded-lg border border-border/25 bg-background/50 text-[13px] outline-none focus:border-accent/40 text-foreground" /></div>
-                  <div><label className="text-[10px] text-muted-foreground/50 font-medium tracking-wider uppercase mb-1.5 block">Horário</label><input type="time" className="w-full h-10 px-3 rounded-lg border border-border/25 bg-background/50 text-[13px] outline-none focus:border-accent/40 text-foreground" /></div>
+                  <div>
+                    <label className="text-[10px] text-muted-foreground/50 font-medium tracking-wider uppercase mb-1.5 block">Data</label>
+                    <input type="date" value={eventForm.data} onChange={e => setEventForm(current => ({ ...current, data: e.target.value }))} className="w-full h-10 px-3 rounded-lg border border-border/25 bg-background/50 text-[13px] outline-none focus:border-accent/40 text-foreground" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-muted-foreground/50 font-medium tracking-wider uppercase mb-1.5 block">Horario</label>
+                    <input type="time" value={eventForm.hora} onChange={e => setEventForm(current => ({ ...current, hora: e.target.value }))} className="w-full h-10 px-3 rounded-lg border border-border/25 bg-background/50 text-[13px] outline-none focus:border-accent/40 text-foreground" />
+                  </div>
                 </div>
                 <div>
                   <label className="text-[10px] text-muted-foreground/50 font-medium tracking-wider uppercase mb-1.5 block">Tipo</label>
                   <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="tipo" defaultChecked className="accent-[hsl(var(--accent))]" /><span className="text-[12px] text-foreground/70">Virtual</span></label>
-                    <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="tipo" className="accent-[hsl(var(--accent))]" /><span className="text-[12px] text-foreground/70">Presencial</span></label>
+                    <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="tipo" checked={!eventForm.presencial} onChange={() => setEventForm(current => ({ ...current, presencial: false }))} className="accent-[hsl(var(--accent))]" /><span className="text-[12px] text-foreground/70">Virtual</span></label>
+                    <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="tipo" checked={eventForm.presencial} onChange={() => setEventForm(current => ({ ...current, presencial: true }))} className="accent-[hsl(var(--accent))]" /><span className="text-[12px] text-foreground/70">Presencial</span></label>
                   </div>
                 </div>
-                <motion.button onClick={() => setShowAddEvent(false)} className="w-full h-10 rounded-lg bg-accent text-accent-foreground text-[13px] font-semibold shadow-[0_2px_10px_-2px_hsl(var(--accent)/0.3)]" whileHover={{ scale: 1.01, y: -1 }} whileTap={{ scale: 0.98 }}>Confirmar Agendamento</motion.button>
+                <motion.button onClick={handleCreateEvent} disabled={isSavingEvent} className="w-full h-10 rounded-lg bg-accent text-accent-foreground text-[13px] font-semibold shadow-[0_2px_10px_-2px_hsl(var(--accent)/0.3)] disabled:opacity-60" whileHover={{ scale: 1.01, y: -1 }} whileTap={{ scale: 0.98 }}>{isSavingEvent ? "Salvando..." : "Confirmar Agendamento"}</motion.button>
               </div>
             </motion.div>
           </motion.div>

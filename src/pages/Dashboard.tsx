@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useTheme } from "@/hooks/use-theme";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -9,8 +9,19 @@ import {
   Eye, MoreHorizontal, TrendingUp, Users, Maximize2, Minimize2, X,
   Download, Briefcase, MapPin, FileCheck
 } from "lucide-react";
-import { Link } from "react-router-dom";
 import ClimbLogo from "@/components/login/ClimbLogo";
+import { clearAuthSession, getDisplayName, getUserInitials } from "@/services/session";
+import { clearGoogleOAuthSession } from "@/services/google-oauth";
+import { toast } from "@/components/ui/sonner";
+import {
+  createReuniao,
+  listEmpresas,
+  listGoogleCalendarEvents,
+  listReunioes,
+  type EmpresaOption,
+  type ReuniaoApi,
+  type ReuniaoPayload,
+} from "@/services/agenda";
 
 /* ══════════════════════════════════════════════════
    DATA
@@ -50,16 +61,17 @@ interface PipelineRow {
   };
   documentos?: { name: string; status: "validated" | "processing" | "pending" }[];
   fluxo?: { name: string; done: boolean }[];
+  ultimoContato?: string;
 }
 
 const pipelineData: PipelineRow[] = [
   {
-    empresa: "Nova Capital", tipo: "BPO", responsavel: "Raul", status: "Ativo", badge: "active", data: "30.01",
+    empresa: "Nova Capital", tipo: "BPO", responsavel: "Equipe Climb", status: "Ativo", badge: "active", data: "30.01",
     isCliente: true,
     contratoInfo: { negociado: "Gestão financeira e fiscal completa", validade: "30/01/2027", valor: "R$ 18.500/mês", ultimoContato: "28/02/2026" },
   },
   {
-    empresa: "Apex Ventures", tipo: "M&A", responsavel: "Raul", status: "Análise", badge: "analysis", data: "20.01",
+    empresa: "Apex Ventures", tipo: "M&A", responsavel: "Equipe Climb", status: "Análise", badge: "analysis", data: "20.01",
     isCliente: false, ultimoContato: "15/02/2026",
     documentos: [
       { name: "Contrato Social", status: "validated" },
@@ -76,9 +88,9 @@ const pipelineData: PipelineRow[] = [
       { name: "Cadastro no Sistema", done: false },
       { name: "Análise & Relatório", done: false },
     ],
-  } as any,
+  },
   {
-    empresa: "Horizon Group", tipo: "Outro", responsavel: "Raul", status: "Proposta", badge: "proposal", data: "28.01",
+    empresa: "Horizon Group", tipo: "Outro", responsavel: "Equipe Climb", status: "Proposta", badge: "proposal", data: "28.01",
     isCliente: false, ultimoContato: "22/02/2026",
     documentos: [
       { name: "Contrato Social", status: "pending" },
@@ -93,19 +105,19 @@ const pipelineData: PipelineRow[] = [
       { name: "Cadastro no Sistema", done: false },
       { name: "Análise & Relatório", done: false },
     ],
-  } as any,
+  },
   {
-    empresa: "Solare Investimentos", tipo: "BPO", responsavel: "Raul", status: "P. Direta", badge: "direct", data: "20.01",
+    empresa: "Solare Investimentos", tipo: "BPO", responsavel: "Equipe Climb", status: "P. Direta", badge: "direct", data: "20.01",
     isCliente: true,
     contratoInfo: { negociado: "Consultoria tributária e planejamento fiscal", validade: "15/06/2027", valor: "R$ 12.000/mês", ultimoContato: "10/03/2026" },
   },
   {
-    empresa: "Meridian Partners", tipo: "M&A", responsavel: "Raul", status: "Ativo", badge: "active", data: "30.01",
+    empresa: "Meridian Partners", tipo: "M&A", responsavel: "Equipe Climb", status: "Ativo", badge: "active", data: "30.01",
     isCliente: true,
     contratoInfo: { negociado: "Assessoria em fusões e aquisições", validade: "01/12/2026", valor: "R$ 45.000/projeto", ultimoContato: "05/03/2026" },
   },
   {
-    empresa: "Vértice Consultoria", tipo: "BPO", responsavel: "Raul", status: "Análise", badge: "analysis", data: "14.02",
+    empresa: "Vértice Consultoria", tipo: "BPO", responsavel: "Equipe Climb", status: "Análise", badge: "analysis", data: "14.02",
     isCliente: false, ultimoContato: "01/03/2026",
     documentos: [
       { name: "Contrato Social", status: "validated" },
@@ -121,9 +133,9 @@ const pipelineData: PipelineRow[] = [
       { name: "Cadastro no Sistema", done: false },
       { name: "Análise & Relatório", done: false },
     ],
-  } as any,
+  },
   {
-    empresa: "Atlas Participações", tipo: "M&A", responsavel: "Raul", status: "Ativo", badge: "active", data: "05.03",
+    empresa: "Atlas Participações", tipo: "M&A", responsavel: "Equipe Climb", status: "Ativo", badge: "active", data: "05.03",
     isCliente: true,
     contratoInfo: { negociado: "Reestruturação societária", validade: "20/09/2027", valor: "R$ 32.000/mês", ultimoContato: "12/03/2026" },
   },
@@ -165,9 +177,10 @@ interface Meeting {
   time: string;
   empresa: string;
   local?: string;
+  source?: "backend" | "google" | "local";
 }
 
-const meetingsData: Record<number, Meeting[]> = {
+const fallbackMeetingsData: Record<number, Meeting[]> = {
   3: [{ title: "Reunião de onboarding", time: "09:00", empresa: "Apex Ventures", local: "Sala 3" }],
   7: [{ title: "Alinhamento financeiro", time: "14:00", empresa: "Nova Capital", local: "Google Meet" }],
   11: [
@@ -182,11 +195,18 @@ const meetingsData: Record<number, Meeting[]> = {
   28: [{ title: "Fechamento mensal", time: "09:00", empresa: "Climb Interno", local: "Auditório" }],
 };
 
-const highlightedDays = Object.keys(meetingsData).map(Number);
+const highlightedDays = Object.keys(fallbackMeetingsData).map(Number);
+const today = new Date();
+const dateInputValue = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+const formatMonthTitle = (date: Date) => new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(date);
+const parseTime = (value?: string) => (value ? value.slice(0, 5) : "09:00");
 
-const calendarDays = () => {
+const calendarDays = (date: Date) => {
   const days: (number | null)[] = [];
-  for (let i = 1; i <= 31; i++) days.push(i);
+  const firstDayOfWeek = new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+  const daysInMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+  for (let i = 0; i < firstDayOfWeek; i++) days.push(null);
+  for (let i = 1; i <= daysInMonth; i++) days.push(i);
   while (days.length % 7 !== 0) days.push(null);
   return days;
 };
@@ -197,7 +217,7 @@ const getNextMeeting = () => {
   const futureDays = highlightedDays.filter(d => d >= today).sort((a, b) => a - b);
   if (futureDays.length > 0) {
     const day = futureDays[0];
-    const meeting = meetingsData[day]?.[0];
+    const meeting = fallbackMeetingsData[day]?.[0];
     if (meeting) return { day, ...meeting };
   }
   return null;
@@ -297,6 +317,117 @@ const Dashboard = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeNav, setActiveNav] = useState(0);
   const navigate = useNavigate();
+  const displayName = getDisplayName();
+  const userInitials = getUserInitials();
+
+  const handleLogout = () => {
+    clearAuthSession();
+    clearGoogleOAuthSession();
+    navigate("/", { replace: true });
+  };
+
+  const loadDashboardCalendar = async () => {
+    try {
+      const firstDay = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1);
+      const lastDay = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 1);
+      const [empresaItems, reunioes, googleEvents] = await Promise.all([
+        listEmpresas(),
+        listReunioes().catch(() => []),
+        listGoogleCalendarEvents(firstDay.toISOString(), lastDay.toISOString()).catch(() => []),
+      ]);
+
+      setEmpresas(empresaItems);
+      setMeetingForm(current => current.empresaId || empresaItems.length === 0 ? current : { ...current, empresaId: String(empresaItems[0].id) });
+
+      const backendMeetings = reunioes
+        .map((reuniao) => {
+          if (!reuniao.data) return null;
+          const [year, month, day] = reuniao.data.split("-").map(Number);
+          if (year !== visibleMonth.getFullYear() || month !== visibleMonth.getMonth() + 1) return null;
+          return {
+            day,
+            title: reuniao.titulo,
+            time: parseTime(reuniao.hora),
+            empresa: reuniao.empresa?.nomeFantasia || reuniao.empresa?.razaoSocial || "Empresa",
+            local: reuniao.local || (reuniao.presencial ? "Presencial" : "Google Meet"),
+            source: "backend" as const,
+          };
+        })
+        .filter(Boolean) as Array<Meeting & { day: number }>;
+
+      const googleMeetings = googleEvents
+        .map((event) => {
+          const startValue = event.start?.dateTime || event.start?.date;
+          if (!startValue) return null;
+          const start = new Date(startValue);
+          if (Number.isNaN(start.getTime()) || start.getFullYear() !== visibleMonth.getFullYear() || start.getMonth() !== visibleMonth.getMonth()) return null;
+          return {
+            day: start.getDate(),
+            title: event.summary || "Evento sem titulo",
+            time: event.start?.date ? "00:00" : parseTime(start.toTimeString()),
+            empresa: "Google Calendar",
+            local: event.hangoutLink || event.location || "Google Calendar",
+            source: "google" as const,
+          };
+        })
+        .filter(Boolean) as Array<Meeting & { day: number }>;
+
+      const grouped = [...backendMeetings, ...googleMeetings].reduce<Record<number, Meeting[]>>((acc, meeting) => {
+        acc[meeting.day] = [...(acc[meeting.day] || []), meeting].sort((a, b) => a.time.localeCompare(b.time));
+        return acc;
+      }, {});
+
+      setMeetingsData(grouped);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Nao foi possivel carregar o calendario do dashboard.");
+      setMeetingsData(fallbackMeetingsData);
+    }
+  };
+
+  const handleDashboardMonthChange = (delta: number) => {
+    setVisibleMonth(current => new Date(current.getFullYear(), current.getMonth() + delta, 1));
+    setSelectedDay(null);
+  };
+
+  const handleDashboardToday = () => {
+    setVisibleMonth(new Date(today.getFullYear(), today.getMonth(), 1));
+    setSelectedDay(today.getDate());
+  };
+
+  const handleCreateDashboardMeeting = async () => {
+    const titleInput = document.querySelector<HTMLInputElement>('[data-dashboard-meeting="title"]')?.value.trim() || meetingForm.titulo;
+    const localInput = document.querySelector<HTMLInputElement>('[data-dashboard-meeting="local"]')?.value.trim() || meetingForm.local;
+    const timeInput = document.querySelector<HTMLInputElement>('[data-dashboard-meeting="time"]')?.value || meetingForm.hora;
+    const empresaId = meetingForm.empresaId;
+
+    if (!titleInput || !empresaId || !timeInput) {
+      toast.error("Preencha titulo, empresa e horario.");
+      return;
+    }
+
+    const payload: ReuniaoPayload = {
+      titulo: titleInput,
+      empresa: { idEmpresa: Number(empresaId) },
+      data: meetingForm.data,
+      hora: timeInput,
+      presencial: meetingForm.presencial,
+      local: localInput || (meetingForm.presencial ? "Presencial" : "Google Meet"),
+      pauta: titleInput,
+      status: "AGENDADA",
+    };
+
+    try {
+      setIsSavingMeeting(true);
+      await createReuniao(payload);
+      toast.success("Reuniao criada e sincronizada com Google Calendar quando conectado.");
+      setShowAddMeeting(false);
+      await loadDashboardCalendar();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Nao foi possivel criar a reuniao.");
+    } finally {
+      setIsSavingMeeting(false);
+    }
+  };
 
   // Maximize states
   const [maxPipeline, setMaxPipeline] = useState(false);
@@ -316,6 +447,18 @@ const Dashboard = () => {
   // Calendar
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [showAddMeeting, setShowAddMeeting] = useState(false);
+  const [visibleMonth, setVisibleMonth] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
+  const [meetingsData, setMeetingsData] = useState<Record<number, Meeting[]>>(fallbackMeetingsData);
+  const [empresas, setEmpresas] = useState<EmpresaOption[]>([]);
+  const [isSavingMeeting, setIsSavingMeeting] = useState(false);
+  const [meetingForm, setMeetingForm] = useState({
+    titulo: "",
+    empresaId: "",
+    data: dateInputValue(today),
+    hora: "09:00",
+    local: "",
+    presencial: false,
+  });
   const [selectedStage, setSelectedStage] = useState<{ label: string; docs: string[] } | null>(null);
 
 
@@ -346,7 +489,22 @@ const Dashboard = () => {
     });
   }, [empresaSearch]);
 
-  const nextMeeting = getNextMeeting();
+  const highlightedDays = useMemo(() => Object.keys(meetingsData).map(Number), [meetingsData]);
+  const calendarGrid = useMemo(() => calendarDays(visibleMonth), [visibleMonth]);
+  const calendarTitle = useMemo(() => formatMonthTitle(visibleMonth), [visibleMonth]);
+  const todayDay = today.getFullYear() === visibleMonth.getFullYear() && today.getMonth() === visibleMonth.getMonth() ? today.getDate() : null;
+  const nextMeeting = useMemo(() => {
+    const fromDay = todayDay || 1;
+    const futureDays = highlightedDays.filter(d => d >= fromDay).sort((a, b) => a - b);
+    const day = futureDays[0];
+    const meeting = day ? meetingsData[day]?.[0] : null;
+    return meeting ? { day, ...meeting } : null;
+  }, [highlightedDays, meetingsData, todayDay]);
+
+  useEffect(() => {
+    void loadDashboardCalendar();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleMonth]);
 
   // ── Handle company click from pipeline ──
   const handleCompanyClick = (row: PipelineRow) => {
@@ -394,22 +552,22 @@ const Dashboard = () => {
         </div>
       </div>
       {/* Table */}
-      <div className="divide-y divide-border/10">
-        <div className="grid grid-cols-[1fr_80px_80px_90px_70px] px-5 py-2.5 text-[10px] text-muted-foreground/35 font-medium tracking-[0.06em] uppercase">
-          <span>Empresa</span><span>Tipo</span><span>Resp.</span><span>Status</span><span className="text-right">Data</span>
+      <div className="divide-y divide-border/10 overflow-x-auto">
+        <div className="grid min-w-[680px] grid-cols-[minmax(180px,1fr)_90px_130px_100px_80px] px-5 py-2.5 text-[10px] text-muted-foreground/35 font-medium tracking-[0.06em] uppercase">
+          <span>Empresa</span><span>Tipo</span><span>Analista</span><span>Status</span><span className="text-right">Data</span>
         </div>
         {data.map((row, i) => (
           <motion.div
             key={row.empresa}
-            className="grid grid-cols-[1fr_80px_80px_90px_70px] px-5 py-3 items-center hover:bg-muted/10 transition-colors duration-200 cursor-pointer group"
+            className="grid min-w-[680px] grid-cols-[minmax(180px,1fr)_90px_130px_100px_80px] px-5 py-3 items-center hover:bg-muted/10 transition-colors duration-200 cursor-pointer group"
             onClick={() => handleCompanyClick(row)}
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.3, delay: i * 0.04 }}
           >
-            <span className="text-[13px] font-medium text-foreground group-hover:text-accent transition-colors duration-200">{row.empresa}</span>
-            <span className="text-[12px] text-muted-foreground/50">{row.tipo}</span>
-            <span className="text-[12px] text-muted-foreground/50">{row.responsavel}</span>
+            <span className="truncate pr-3 text-[13px] font-medium text-foreground group-hover:text-accent transition-colors duration-200">{row.empresa}</span>
+            <span className="truncate pr-3 text-[12px] text-muted-foreground/50">{row.tipo}</span>
+            <span className="truncate pr-3 text-[12px] text-muted-foreground/50" title={row.responsavel}>{row.responsavel}</span>
             <span><span className={`inline-flex items-center h-6 px-2.5 rounded-md text-[10px] font-medium border ${badgeStyles[row.badge]}`}>{row.status}</span></span>
             <span className="text-[12px] text-muted-foreground/40 text-right font-mono">{row.data}</span>
           </motion.div>
@@ -492,9 +650,9 @@ const Dashboard = () => {
     }
 
     // Pendente
-    const docs = (company as any).documentos || [];
-    const fluxo = (company as any).fluxo || [];
-    const validatedCount = docs.filter((d: any) => d.status === "validated").length;
+    const docs = company.documentos || [];
+    const fluxo = company.fluxo || [];
+    const validatedCount = docs.filter((doc) => doc.status === "validated").length;
     const compliance = docs.length > 0 ? Math.round((validatedCount / docs.length) * 100) : 0;
 
     return (
@@ -509,13 +667,13 @@ const Dashboard = () => {
           </div>
           <span className={`ml-auto inline-flex items-center h-6 px-2.5 rounded-md text-[10px] font-medium border ${badgeStyles[company.badge]}`}>{company.status}</span>
         </div>
-        <p className="text-[11px] text-muted-foreground/40">Último contato: {(company as any).ultimoContato || "—"}</p>
+        <p className="text-[11px] text-muted-foreground/40">Último contato: {company.ultimoContato || "—"}</p>
 
         <div className="grid grid-cols-2 gap-x-8">
           {/* Docs */}
           <div>
             <p className="text-[10px] text-muted-foreground/35 font-medium tracking-[0.08em] uppercase mb-3">Fluxo Ativo</p>
-            {docs.map((doc: any, i: number) => (
+            {docs.map((doc) => (
               <div key={doc.name} className="flex items-center justify-between py-2">
                 <span className="text-[12px] text-foreground/70">{doc.name}</span>
                 <span className={`text-[9px] font-medium px-2 py-0.5 rounded-full ${
@@ -531,7 +689,7 @@ const Dashboard = () => {
           {/* Fluxo */}
           <div>
             <p className="text-[10px] text-muted-foreground/35 font-medium tracking-[0.08em] uppercase mb-3">Formulário Regular</p>
-            {fluxo.map((item: any) => (
+            {fluxo.map((item) => (
               <div key={item.name} className="flex items-center gap-2.5 py-2">
                 <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${item.done ? "border-accent bg-accent/10" : "border-border/30"}`}>
                   {item.done && <CheckCircle2 className="w-3 h-3 text-accent" />}
@@ -560,10 +718,10 @@ const Dashboard = () => {
   const renderCalendar = (expanded = false) => (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <h4 className="text-[12px] font-semibold text-foreground">Março 2026</h4>
+        <h4 className="text-[12px] font-semibold text-foreground capitalize">{calendarTitle}</h4>
         <div className="flex items-center gap-0.5">
-          <button className="w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors"><ChevronLeft className="w-3 h-3" /></button>
-          <button className="w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors"><ChevronRight className="w-3 h-3" /></button>
+          <button onClick={() => handleDashboardMonthChange(-1)} className="w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors"><ChevronLeft className="w-3 h-3" /></button>
+          <button onClick={() => handleDashboardMonthChange(1)} className="w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors"><ChevronRight className="w-3 h-3" /></button>
         </div>
       </div>
 
@@ -574,9 +732,9 @@ const Dashboard = () => {
       </div>
 
       <div className={`grid grid-cols-7 ${expanded ? "gap-1.5" : "gap-0.5"}`}>
-        {calendarDays().map((day, i) => {
+        {calendarGrid.map((day, i) => {
           const hasMeeting = day !== null && highlightedDays.includes(day);
-          const isToday = day === 15;
+          const isToday = day === todayDay;
           const isSelected = day === selectedDay;
           return (
             <motion.div
@@ -590,7 +748,7 @@ const Dashboard = () => {
               }`}
               whileHover={day ? { scale: expanded ? 1.05 : 1.08 } : undefined}
               whileTap={day ? { scale: 0.95 } : undefined}
-              onClick={() => { if (day && hasMeeting) setSelectedDay(day === selectedDay ? null : day); }}
+              onClick={() => { if (day) setSelectedDay(day === selectedDay ? null : day); }}
             >
               {day}
               {hasMeeting && !isToday && !isSelected && <div className="absolute bottom-0.5 w-1 h-1 rounded-full bg-accent" />}
@@ -610,7 +768,7 @@ const Dashboard = () => {
             transition={{ duration: 0.3 }}
           >
             <p className="text-[10px] text-muted-foreground/40 font-medium tracking-[0.08em] uppercase mb-2">
-              Reuniões em {selectedDay}/03
+              Reuniões em {selectedDay}/{visibleMonth.getMonth() + 1}
             </p>
             {meetingsData[selectedDay].map((m, i) => (
               <motion.div
@@ -653,19 +811,17 @@ const Dashboard = () => {
               animate={{ opacity: 1, y: 0 }}
             >
               <p className="text-[11px] font-medium text-foreground">Nova reunião</p>
-              <input type="text" placeholder="Título" className="w-full h-9 px-3 rounded-lg border border-border/25 bg-background/50 text-[12px] outline-none focus:border-accent/40 transition-colors placeholder:text-muted-foreground/30" />
+              <input data-dashboard-meeting="title" type="text" placeholder="Título" className="w-full h-9 px-3 rounded-lg border border-border/25 bg-background/50 text-[12px] outline-none focus:border-accent/40 transition-colors placeholder:text-muted-foreground/30" />
               <div className="grid grid-cols-2 gap-3">
-                <input type="text" placeholder="Empresa" className="h-9 px-3 rounded-lg border border-border/25 bg-background/50 text-[12px] outline-none focus:border-accent/40 transition-colors placeholder:text-muted-foreground/30" />
-                <input type="text" placeholder="Horário (HH:MM)" className="h-9 px-3 rounded-lg border border-border/25 bg-background/50 text-[12px] outline-none focus:border-accent/40 transition-colors placeholder:text-muted-foreground/30" />
+                <select value={meetingForm.empresaId} onChange={e => setMeetingForm(current => ({ ...current, empresaId: e.target.value }))} className="h-9 px-3 rounded-lg border border-border/25 bg-background/50 text-[12px] outline-none focus:border-accent/40"><option value="">Empresa</option>{empresas.map(empresa => <option key={empresa.id} value={empresa.id}>{empresa.nomeFantasia || empresa.razaoSocial}</option>)}</select>
+                <input data-dashboard-meeting="time" type="time" value={meetingForm.hora} onChange={e => setMeetingForm(current => ({ ...current, hora: e.target.value }))} className="h-9 px-3 rounded-lg border border-border/25 bg-background/50 text-[12px] outline-none focus:border-accent/40 transition-colors placeholder:text-muted-foreground/30" />
               </div>
-              <input type="text" placeholder="Local / Link" className="w-full h-9 px-3 rounded-lg border border-border/25 bg-background/50 text-[12px] outline-none focus:border-accent/40 transition-colors placeholder:text-muted-foreground/30" />
+              <input data-dashboard-meeting="local" type="text" placeholder="Local / Link" className="w-full h-9 px-3 rounded-lg border border-border/25 bg-background/50 text-[12px] outline-none focus:border-accent/40 transition-colors placeholder:text-muted-foreground/30" /><label className="flex items-center gap-2 text-[11px] text-foreground/70"><input type="checkbox" checked={meetingForm.presencial} onChange={e => setMeetingForm(current => ({ ...current, presencial: e.target.checked }))} className="accent-[hsl(var(--accent))]" /> Presencial</label>
               <div className="flex items-center gap-2 justify-end">
                 <motion.button onClick={() => setShowAddMeeting(false)} className="h-8 px-3 rounded-md text-[11px] text-muted-foreground hover:text-foreground transition-colors" whileTap={{ scale: 0.98 }}>
                   Cancelar
                 </motion.button>
-                <motion.button onClick={() => setShowAddMeeting(false)} className="h-8 px-4 rounded-md bg-accent text-accent-foreground text-[11px] font-medium" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                  Confirmar
-                </motion.button>
+                <motion.button onClick={handleCreateDashboardMeeting} disabled={isSavingMeeting} className="h-8 px-4 rounded-md bg-accent text-accent-foreground text-[11px] font-medium disabled:opacity-60" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>{isSavingMeeting ? "Salvando..." : "Confirmar"}</motion.button>
               </div>
             </motion.div>
           )}
@@ -739,12 +895,10 @@ const Dashboard = () => {
               </AnimatePresence>
               {!sidebarCollapsed && <span className="text-[13px] font-medium">{isDark ? "Modo claro" : "Modo escuro"}</span>}
             </motion.button>
-            <Link to="/">
-              <motion.button className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground/50 hover:text-destructive hover:bg-destructive/5 transition-all duration-200 ${sidebarCollapsed ? "justify-center" : ""}`} whileTap={{ scale: 0.98 }}>
+            <motion.button onClick={handleLogout} className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground/50 hover:text-destructive hover:bg-destructive/5 transition-all duration-200 ${sidebarCollapsed ? "justify-center" : ""}`} whileTap={{ scale: 0.98 }}>
                 <LogOut className="w-[18px] h-[18px]" />
                 {!sidebarCollapsed && <span className="text-[13px] font-medium">Sair</span>}
-              </motion.button>
-            </Link>
+            </motion.button>
           </div>
 
           <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className="absolute -right-3 top-20 w-6 h-6 rounded-full bg-card border border-border/40 flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-accent/40 transition-all duration-200 shadow-sm">
@@ -758,7 +912,7 @@ const Dashboard = () => {
           <motion.header className="sticky top-0 z-20 h-16 flex items-center justify-between px-6 border-b border-border/20 bg-background/80 backdrop-blur-xl" initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
             <div>
               <p className="text-[10px] text-muted-foreground/40 tracking-[0.12em] uppercase">bem-vindo de volta</p>
-              <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Raul Rodrigues</h2>
+              <h2 className="text-[15px] font-semibold text-foreground tracking-tight">{displayName}</h2>
             </div>
             <div className="flex items-center gap-2">
               <motion.div className="flex items-center gap-2 h-9 px-3 rounded-lg border border-border/25 bg-card/30 backdrop-blur-sm text-muted-foreground/40" whileHover={{ borderColor: "hsl(var(--accent) / 0.3)" }}>
@@ -771,7 +925,7 @@ const Dashboard = () => {
                 <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-accent text-[8px] font-bold text-accent-foreground flex items-center justify-center">3</span>
               </motion.button>
               <motion.div className="w-9 h-9 rounded-lg bg-accent/15 border border-accent/20 flex items-center justify-center" whileHover={{ scale: 1.03 }}>
-                <span className="text-accent font-semibold text-[11px]">RR</span>
+                <span className="text-accent font-semibold text-[11px]">{userInitials}</span>
               </motion.div>
             </div>
           </motion.header>
@@ -781,7 +935,7 @@ const Dashboard = () => {
             {/* Action bar */}
             <motion.div className="flex items-center justify-between" variants={itemVariants}>
               <div className="flex items-center gap-3">
-                <motion.button className="h-9 px-4 rounded-lg bg-accent text-accent-foreground text-[12px] font-semibold flex items-center gap-2 shadow-[0_2px_10px_-2px_hsl(var(--accent)/0.3)]" whileHover={{ scale: 1.02, y: -1 }} whileTap={{ scale: 0.98 }}>
+                <motion.button onClick={() => navigate("/contratos")} className="h-9 px-4 rounded-lg bg-accent text-accent-foreground text-[12px] font-semibold flex items-center gap-2 shadow-[0_2px_10px_-2px_hsl(var(--accent)/0.3)]" whileHover={{ scale: 1.02, y: -1 }} whileTap={{ scale: 0.98 }}>
                   <Plus className="w-3.5 h-3.5" /> Novo Contrato
                 </motion.button>
                 <div className="h-9 px-3 rounded-lg border border-border/25 bg-card/20 flex items-center gap-2 text-[12px] text-muted-foreground">
@@ -898,7 +1052,7 @@ const Dashboard = () => {
                         </div>
                         <div>
                           <p className="text-[13px] font-medium text-foreground group-hover:text-accent transition-colors">{row.empresa}</p>
-                          <p className="text-[10px] text-muted-foreground/40">{row.tipo} · {row.responsavel} · Contato: {(row as any).ultimoContato || "—"}</p>
+                          <p className="text-[10px] text-muted-foreground/40">{row.tipo} · {row.responsavel} · Contato: {row.ultimoContato || "—"}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -1004,7 +1158,7 @@ const Dashboard = () => {
                     </div>
                     <div>
                       <p className="text-[13px] font-medium text-foreground group-hover:text-accent transition-colors">{row.empresa}</p>
-                      <p className="text-[10px] text-muted-foreground/40">{row.tipo} · {row.responsavel} · Contato: {row.isCliente ? row.contratoInfo?.ultimoContato : (row as any).ultimoContato || "—"}</p>
+                      <p className="text-[10px] text-muted-foreground/40">{row.tipo} · {row.responsavel} · Contato: {row.isCliente ? row.contratoInfo?.ultimoContato : row.ultimoContato || "—"}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">

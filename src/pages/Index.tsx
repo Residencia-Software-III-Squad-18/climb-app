@@ -1,10 +1,14 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Eye, EyeOff, ArrowRight, Moon, Sun } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import ClimbLogo from "@/components/login/ClimbLogo";
 import InvestmentGraphics from "@/components/login/InvestmentGraphics";
+import { toast } from "@/components/ui/sonner";
 import { useTheme } from "@/hooks/use-theme";
+import { getGoogleAuthorizationUrl, loginWithPassword } from "@/services/auth";
+import { clearGoogleOAuthHashFromUrl, parseGoogleOAuthHash, saveGoogleOAuthSession } from "@/services/google-oauth";
+import { getAuthSession, saveAuthSession } from "@/services/session";
 
 const Index = () => {
   const { isDark, setIsDark } = useTheme();
@@ -12,14 +16,70 @@ const Index = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [isLoginLoading, setIsLoginLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const oauthResult = parseGoogleOAuthHash(window.location.hash || window.location.search);
+
+    if (!oauthResult) {
+      return;
+    }
+
+    clearGoogleOAuthHashFromUrl();
+
+    if (oauthResult.status === "success") {
+      saveGoogleOAuthSession(oauthResult.session);
+      if (oauthResult.authSession) {
+        saveAuthSession(oauthResult.authSession);
+        toast.success("Login Google concluido. Redirecionando para a plataforma.");
+        navigate("/dashboard", { replace: true });
+      } else if (getAuthSession()) {
+        toast.success("Google Calendar conectado. Redirecionando para a plataforma.");
+        navigate("/dashboard", { replace: true });
+      } else {
+        toast.success("Google Calendar conectado. Entre no sistema para agendar reunioes.");
+      }
+      return;
+    }
+
+    toast.error(oauthResult.error);
+  }, [navigate]);
+
+  const handleGoogleLogin = async () => {
+    try {
+      setIsGoogleLoading(true);
+      const authorizationUrl = await getGoogleAuthorizationUrl();
+      window.location.href = authorizationUrl;
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Nao foi possivel iniciar o login com Google.",
+      );
+      setIsGoogleLoading(false);
+    }
+  };
+
+  const handlePasswordLogin = async () => {
+    try {
+      setIsLoginLoading(true);
+      const session = await loginWithPassword(email, password);
+      saveAuthSession(session);
+      toast.success("Login realizado com sucesso.");
+      navigate("/dashboard", { replace: true });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Nao foi possivel acessar a plataforma.");
+    } finally {
+      setIsLoginLoading(false);
+    }
+  };
 
   return (
     <div className="relative min-h-screen bg-background text-foreground transition-colors duration-500 overflow-hidden">
       <div
         className="fixed inset-0 pointer-events-none opacity-[0.015] dark:opacity-[0.03]"
         style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='256' height='256' fill='transparent'/%3E%3C/svg%3E")`,
           backgroundRepeat: "repeat",
           backgroundSize: "128px 128px",
         }}
@@ -107,7 +167,7 @@ const Index = () => {
               <motion.form
                 onSubmit={(e) => {
                   e.preventDefault();
-                  navigate("/dashboard");
+                  void handlePasswordLogin();
                 }}
                 className="space-y-5"
                 initial={{ opacity: 0, y: 16 }}
@@ -184,6 +244,7 @@ const Index = () => {
 
                 <motion.button
                   type="submit"
+                  disabled={isLoginLoading}
                   className="w-full h-11 rounded-md bg-accent text-accent-foreground text-sm font-semibold flex items-center justify-center gap-2 group relative overflow-hidden"
                   whileHover={{ scale: 1.005 }}
                   whileTap={{ scale: 0.995 }}
@@ -200,7 +261,7 @@ const Index = () => {
                     transition={{ duration: 1.5, repeat: Infinity }}
                   />
                   <span className="relative z-10 flex items-center gap-2">
-                    Acessar plataforma
+                    {isLoginLoading ? "Acessando..." : "Acessar plataforma"}
                     <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
                   </span>
                 </motion.button>
@@ -218,6 +279,8 @@ const Index = () => {
 
                 <motion.button
                   type="button"
+                  onClick={handleGoogleLogin}
+                  disabled={isGoogleLoading}
                   className="w-full h-11 rounded-md border border-border/50 bg-background text-sm font-medium text-foreground flex items-center justify-center gap-2.5 transition-colors duration-200 hover:bg-muted/30 hover:border-border"
                   whileHover={{ scale: 1.005 }}
                   whileTap={{ scale: 0.995 }}
@@ -228,7 +291,7 @@ const Index = () => {
                     <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18A10.96 10.96 0 0 0 1 12c0 1.77.42 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
                     <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
                   </svg>
-                  Continuar com Google
+                  {isGoogleLoading ? "Conectando ao Google..." : "Conectar Google Calendar"}
                 </motion.button>
               </motion.form>
             </div>

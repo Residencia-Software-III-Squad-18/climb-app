@@ -177,6 +177,25 @@ export async function createReuniao(payload: ReuniaoPayload) {
   return (await response.json()) as ReuniaoApi;
 }
 
+export async function deleteReuniao(id: number) {
+  const response = await apiFetch(`/reunioes/${id}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    let message = "Nao foi possivel remover a reuniao.";
+
+    if (response.status === 401 || response.status === 403) {
+      message = "Sua sessao do sistema expirou. Saia e entre novamente para sincronizar a agenda.";
+    } else {
+      const body = await response.json().catch(() => null) as { message?: string; error?: string } | null;
+      message = body?.message || body?.error || message;
+    }
+
+    throw new Error(message);
+  }
+}
+
 export async function listGoogleCalendarEvents(timeMin: string, timeMax: string) {
   const googleAccessToken = getGoogleOAuthSession()?.accessToken;
 

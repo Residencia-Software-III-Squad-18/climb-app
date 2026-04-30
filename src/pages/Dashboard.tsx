@@ -11,10 +11,11 @@ import {
 } from "lucide-react";
 import ClimbLogo from "@/components/login/ClimbLogo";
 import { clearAuthSession, getDisplayName, getUserInitials } from "@/services/session";
-import { clearGoogleOAuthSession } from "@/services/google-oauth";
+import { clearGoogleOAuthSession, getGoogleOAuthSession } from "@/services/google-oauth";
 import { toast } from "@/components/ui/sonner";
 import {
   createReuniao,
+  deleteReuniao,
   listEmpresas,
   listGoogleCalendarEvents,
   listReunioes,
@@ -201,6 +202,12 @@ const dateInputValue = (date: Date) => `${date.getFullYear()}-${String(date.getM
 const formatMonthTitle = (date: Date) => new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(date);
 const parseTime = (value?: string) => (value ? value.slice(0, 5) : "09:00");
 
+const isReuniaoInVisibleMonth = (reuniao: ReuniaoApi, visibleMonth: Date) => {
+  if (!reuniao.data) return false;
+  const [year, month] = reuniao.data.split("-").map(Number);
+  return year === visibleMonth.getFullYear() && month === visibleMonth.getMonth() + 1;
+};
+
 const calendarDays = (date: Date) => {
   const days: (number | null)[] = [];
   const firstDayOfWeek = new Date(date.getFullYear(), date.getMonth(), 1).getDay();
@@ -330,16 +337,42 @@ const Dashboard = () => {
     try {
       const firstDay = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1);
       const lastDay = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 1);
+      const hasGoogleSession = Boolean(getGoogleOAuthSession()?.accessToken);
+      let googleSyncSucceeded = true;
       const [empresaItems, reunioes, googleEvents] = await Promise.all([
         listEmpresas(),
         listReunioes().catch(() => []),
-        listGoogleCalendarEvents(firstDay.toISOString(), lastDay.toISOString()).catch(() => []),
+        listGoogleCalendarEvents(firstDay.toISOString(), lastDay.toISOString()).catch(() => {
+          googleSyncSucceeded = false;
+          return [];
+        }),
       ]);
 
       setEmpresas(empresaItems);
       setMeetingForm(current => current.empresaId || empresaItems.length === 0 ? current : { ...current, empresaId: String(empresaItems[0].id) });
 
-      const backendMeetings = reunioes
+      const googleEventIds = new Set(
+        googleEvents
+          .map((event) => event.id)
+          .filter((id): id is string => Boolean(id)),
+      );
+
+      const deletedInGoogle = hasGoogleSession && googleSyncSucceeded
+        ? reunioes.filter((reuniao) =>
+            reuniao.googleEventId &&
+            isReuniaoInVisibleMonth(reuniao, visibleMonth) &&
+            !googleEventIds.has(reuniao.googleEventId),
+          )
+        : [];
+
+      if (deletedInGoogle.length > 0) {
+        await Promise.all(deletedInGoogle.map((reuniao) => deleteReuniao(reuniao.idReuniao)));
+      }
+
+      const deletedBackendIds = new Set(deletedInGoogle.map((reuniao) => reuniao.idReuniao));
+      const syncedReunioes = reunioes.filter((reuniao) => !deletedBackendIds.has(reuniao.idReuniao));
+
+      const backendMeetings = syncedReunioes
         .map((reuniao) => {
           if (!reuniao.data) return null;
           const [year, month, day] = reuniao.data.split("-").map(Number);
@@ -355,7 +388,14 @@ const Dashboard = () => {
         })
         .filter(Boolean) as Array<Meeting & { day: number }>;
 
+      const backendGoogleEventIds = new Set(
+        syncedReunioes
+          .map((reuniao) => reuniao.googleEventId)
+          .filter((id): id is string => Boolean(id)),
+      );
+
       const googleMeetings = googleEvents
+        .filter((event) => !event.id || !backendGoogleEventIds.has(event.id))
         .map((event) => {
           const startValue = event.start?.dateTime || event.start?.date;
           if (!startValue) return null;

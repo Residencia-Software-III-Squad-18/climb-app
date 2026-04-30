@@ -9,10 +9,11 @@ import {
 import { useNavigate } from "react-router-dom";
 import ClimbLogo from "@/components/login/ClimbLogo";
 import { clearAuthSession } from "@/services/session";
-import { clearGoogleOAuthSession } from "@/services/google-oauth";
+import { clearGoogleOAuthSession, getGoogleOAuthSession } from "@/services/google-oauth";
 import { toast } from "@/components/ui/sonner";
 import {
   createReuniao,
+  deleteReuniao,
   listEmpresas,
   listGoogleCalendarEvents,
   listReunioes,
@@ -153,6 +154,12 @@ const mapReuniaoToEvent = (reuniao: ReuniaoApi, visibleMonth: Date): AgendaEvent
   };
 };
 
+const isReuniaoInVisibleMonth = (reuniao: ReuniaoApi, visibleMonth: Date) => {
+  if (!reuniao.data) return false;
+  const [year, month] = reuniao.data.split("-").map(Number);
+  return year === visibleMonth.getFullYear() && month === visibleMonth.getMonth() + 1;
+};
+
 const mapGoogleToEvent = (
   event: Awaited<ReturnType<typeof listGoogleCalendarEvents>>[number],
   visibleMonth: Date,
@@ -259,10 +266,13 @@ const Agenda = () => {
       setIsLoadingEvents(true);
       const firstDay = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1);
       const lastDay = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 1);
+      const hasGoogleSession = Boolean(getGoogleOAuthSession()?.accessToken);
+      let googleSyncSucceeded = true;
       const [empresaItems, reunioes, googleEvents] = await Promise.all([
         listEmpresas(),
         listReunioes().catch(() => []),
         listGoogleCalendarEvents(firstDay.toISOString(), lastDay.toISOString()).catch((error) => {
+          googleSyncSucceeded = false;
           toast.error(error instanceof Error ? error.message : "Nao foi possivel sincronizar o Google Calendar.");
           return [];
         }),
@@ -272,10 +282,38 @@ const Agenda = () => {
       setEventForm((current) => current.empresaId || empresaItems.length === 0
         ? current
         : { ...current, empresaId: String(empresaItems[0].id) });
-      const backendAgendaEvents = reunioes
+
+      const googleEventIds = new Set(
+        googleEvents
+          .map((event) => event.id)
+          .filter((id): id is string => Boolean(id)),
+      );
+
+      const deletedInGoogle = hasGoogleSession && googleSyncSucceeded
+        ? reunioes.filter((reuniao) =>
+            reuniao.googleEventId &&
+            isReuniaoInVisibleMonth(reuniao, visibleMonth) &&
+            !googleEventIds.has(reuniao.googleEventId),
+          )
+        : [];
+
+      if (deletedInGoogle.length > 0) {
+        await Promise.all(deletedInGoogle.map((reuniao) => deleteReuniao(reuniao.idReuniao)));
+      }
+
+      const deletedBackendIds = new Set(deletedInGoogle.map((reuniao) => reuniao.idReuniao));
+      const syncedReunioes = reunioes.filter((reuniao) => !deletedBackendIds.has(reuniao.idReuniao));
+
+      const backendAgendaEvents = syncedReunioes
         .map((reuniao) => mapReuniaoToEvent(reuniao, visibleMonth))
         .filter((event): event is AgendaEvent => Boolean(event));
+      const backendGoogleEventIds = new Set(
+        syncedReunioes
+          .map((reuniao) => reuniao.googleEventId)
+          .filter((id): id is string => Boolean(id)),
+      );
       const googleAgendaEvents = googleEvents
+        .filter((event) => !event.id || !backendGoogleEventIds.has(event.id))
         .map((event) => mapGoogleToEvent(event, visibleMonth))
         .filter((event): event is AgendaEvent => Boolean(event));
 

@@ -1,23 +1,33 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Eye, EyeOff, ArrowRight, Moon, Sun } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Eye, EyeOff, ArrowRight, Moon, Sun, Loader2 } from "lucide-react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { AxiosError } from "axios";
 import { setCookie } from "nookies";
+import { toast } from "sonner";
 
 import ClimbLogo from "@/components/login/ClimbLogo";
 import InvestmentGraphics from "@/components/login/InvestmentGraphics";
 import { useTheme } from "@/hooks/use-theme";
 
 import { useSignIn } from "@/hooks/useAuth/useSignIn";
+import {
+  useGoogleAuthUrl,
+  useExchangeGoogleCode,
+} from "@/hooks/useAuth/useGoogleAuth";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useUserRoleStore } from "@/store/useUserRoleStore";
 
 const Index = () => {
   const { isDark, setIsDark } = useTheme();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const { mutateAsync: signIn, isPending } = useSignIn();
+  const { mutateAsync: getGoogleAuthUrl, isPending: isLoadingGoogleUrl } =
+    useGoogleAuthUrl();
+  const { mutateAsync: exchangeGoogleCode, isPending: isExchangingCode } =
+    useExchangeGoogleCode();
 
   const setBasicUserData = useAuthStore((state) => state.setBasicUserData);
   const setRole = useUserRoleStore((state) => state.setRole);
@@ -27,6 +37,19 @@ const Index = () => {
   const [password, setPassword] = useState("");
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
+
+  // Handler para callback do Google OAuth
+  useEffect(() => {
+    const code = searchParams.get("code");
+    const googleOauth = searchParams.get("google_oauth");
+    const errorMsg = searchParams.get("message");
+
+    if (googleOauth === "success" && code) {
+      handleGoogleCallback(code);
+    } else if (googleOauth === "error") {
+      toast.error(`Erro: ${errorMsg || "Falha na autenticação"}`);
+    }
+  }, [searchParams]);
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -87,6 +110,55 @@ const Index = () => {
         "Não foi possível entrar. Verifique suas credenciais.";
 
       setErrorMessage(apiMessage);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      const data = await getGoogleAuthUrl();
+      window.location.href = data.authorizationUrl;
+    } catch {
+      toast.error("Erro ao iniciar login com Google");
+    }
+  };
+
+  const handleGoogleCallback = async (code: string) => {
+    try {
+      const response = await exchangeGoogleCode(code);
+
+      if (!response.success) {
+        toast.error(response.message);
+        return;
+      }
+
+      const { data } = response;
+
+      // Salvar tokens
+      setCookie(null, "@CLIMB:T", data.accessToken, {
+        maxAge: data.expiresIn,
+        path: "/",
+      });
+
+      setCookie(null, "@CLIMB:RT", data.refreshToken, {
+        maxAge: 60 * 60 * 24 * 30,
+        path: "/",
+      });
+
+      // Salvar dados do usuário
+      setBasicUserData({
+        id: data.usuario.id,
+        email: data.usuario.email,
+        nomeCompleto: data.usuario.nomeCompleto,
+      });
+
+      // Salvar role
+      setRole(data.usuario.cargoNome || "USER");
+
+      toast.success(`Bem-vindo, ${data.usuario.nomeCompleto}!`);
+      navigate("/dashboard");
+    } catch (error) {
+      toast.error("Erro ao processar login com Google");
+      console.error(error);
     }
   };
 
@@ -189,7 +261,8 @@ const Index = () => {
                 </h1>
 
                 <p className="mb-10 max-w-[340px] text-sm leading-relaxed text-muted-foreground/60">
-                  Plataforma restrita para operações, análises e gestão patrimonial.
+                  Plataforma restrita para operações, análises e gestão
+                  patrimonial.
                 </p>
               </motion.div>
 
@@ -329,29 +402,52 @@ const Index = () => {
 
                 <motion.button
                   type="button"
-                  className="flex h-11 w-full items-center justify-center gap-2.5 rounded-md border border-border/50 bg-background text-sm font-medium text-foreground transition-colors duration-200 hover:border-border hover:bg-muted/30"
-                  whileHover={{ scale: 1.005 }}
-                  whileTap={{ scale: 0.995 }}
+                  onClick={handleGoogleLogin}
+                  disabled={isLoadingGoogleUrl || isExchangingCode}
+                  className="flex h-11 w-full items-center justify-center gap-2.5 rounded-md border border-border/50 bg-background text-sm font-medium text-foreground transition-colors duration-200 hover:border-border hover:bg-muted/30 disabled:cursor-not-allowed disabled:opacity-50"
+                  whileHover={
+                    isLoadingGoogleUrl || isExchangingCode
+                      ? {}
+                      : { scale: 1.005 }
+                  }
+                  whileTap={
+                    isLoadingGoogleUrl || isExchangingCode
+                      ? {}
+                      : { scale: 0.995 }
+                  }
                 >
-                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none">
-                    <path
-                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
-                      fill="#4285F4"
-                    />
-                    <path
-                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                      fill="#34A853"
-                    />
-                    <path
-                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18A10.96 10.96 0 0 0 1 12c0 1.77.42 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                      fill="#FBBC05"
-                    />
-                    <path
-                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                      fill="#EA4335"
-                    />
-                  </svg>
-                  Continuar com Google
+                  {isLoadingGoogleUrl || isExchangingCode ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Processando...
+                    </>
+                  ) : (
+                    <>
+                      <svg
+                        viewBox="0 0 24 24"
+                        className="h-3.5 w-3.5"
+                        fill="none"
+                      >
+                        <path
+                          d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
+                          fill="#4285F4"
+                        />
+                        <path
+                          d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                          fill="#34A853"
+                        />
+                        <path
+                          d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18A10.96 10.96 0 0 0 1 12c0 1.77.42 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                          fill="#FBBC05"
+                        />
+                        <path
+                          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                          fill="#EA4335"
+                        />
+                      </svg>
+                      Continuar com Google
+                    </>
+                  )}
                 </motion.button>
               </motion.form>
             </div>

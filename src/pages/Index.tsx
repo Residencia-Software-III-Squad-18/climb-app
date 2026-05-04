@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Eye, EyeOff, ArrowRight, Moon, Sun } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { AxiosError } from "axios";
 import { setCookie } from "nookies";
 
+import { api } from "@/api";
 import ClimbLogo from "@/components/login/ClimbLogo";
 import InvestmentGraphics from "@/components/login/InvestmentGraphics";
 import { useTheme } from "@/hooks/use-theme";
@@ -27,6 +28,105 @@ const Index = () => {
   const [password, setPassword] = useState("");
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
+  const [isGooglePending, setIsGooglePending] = useState(false);
+
+  const storeSession = (response: {
+    accessToken?: string;
+    refreshToken?: string;
+    expiresIn?: number;
+    usuario?: {
+      id?: number;
+      email?: string;
+      nomeCompleto?: string;
+      cargoNome?: string;
+      cargo?: string;
+      role?: string;
+    };
+  }) => {
+    if (!response?.accessToken || !response?.refreshToken) {
+      throw new Error("Resposta de login inválida.");
+    }
+
+    setCookie(null, "@CLIMB:T", response.accessToken, {
+      maxAge: response.expiresIn || 60 * 60 * 24 * 7,
+      path: "/",
+    });
+
+    setCookie(null, "@CLIMB:R", response.refreshToken, {
+      maxAge: 60 * 60 * 24 * 30,
+      path: "/",
+    });
+
+    setBasicUserData({
+      id: response.usuario?.id,
+      email: response.usuario?.email,
+      nomeCompleto: response.usuario?.nomeCompleto,
+    });
+
+    const possibleRole =
+      response.usuario?.cargoNome ||
+      response.usuario?.cargo ||
+      response.usuario?.role;
+
+    if (possibleRole) {
+      setRole(possibleRole);
+    }
+
+    if ("googleAccessToken" in response && response.googleAccessToken) {
+      localStorage.setItem("@CLIMB:GOOGLE_ACCESS_TOKEN", response.googleAccessToken);
+    } else {
+      localStorage.removeItem("@CLIMB:GOOGLE_ACCESS_TOKEN");
+    }
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const googleOAuthStatus = params.get("google_oauth");
+    const code = params.get("code");
+    const googleOAuthError = params.get("google_oauth_error");
+
+    if (!googleOAuthStatus) return;
+
+    window.history.replaceState({}, document.title, window.location.pathname);
+
+    if (googleOAuthStatus === "error") {
+      setErrorMessage(
+        googleOAuthError || "Não foi possível entrar com Google.",
+      );
+      return;
+    }
+
+    if (googleOAuthStatus !== "success" || !code) {
+      setErrorMessage("Retorno do Google inválido.");
+      return;
+    }
+
+    const exchangeGoogleCode = async () => {
+      setIsGooglePending(true);
+      setErrorMessage("");
+
+      try {
+        const response = await api.post("/auth/exchange", { code });
+        storeSession(response.data?.data);
+        navigate("/dashboard");
+      } catch (error) {
+        const axiosError = error as AxiosError<{
+          message?: string;
+          error?: string;
+        }>;
+
+        setErrorMessage(
+          axiosError.response?.data?.message ||
+            axiosError.response?.data?.error ||
+            "Não foi possível concluir o login com Google.",
+        );
+      } finally {
+        setIsGooglePending(false);
+      }
+    };
+
+    void exchangeGoogleCode();
+  }, [navigate]);
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -48,32 +148,7 @@ const Index = () => {
         return;
       }
 
-      setCookie(null, "@CLIMB:T", response.accessToken, {
-        maxAge: response.expiresIn,
-        path: "/",
-      });
-
-      setCookie(null, "@CLIMB:RT", response.refreshToken, {
-        maxAge: 60 * 60 * 24 * 30,
-        path: "/",
-      });
-
-      setBasicUserData({
-        id: response.usuario?.id,
-        email: response.usuario?.email,
-        nomeCompleto: response.usuario?.nomeCompleto,
-      });
-
-      const possibleRole =
-        (response.usuario as { cargo?: string; role?: string } | undefined)
-          ?.cargo ||
-        (response.usuario as { cargo?: string; role?: string } | undefined)
-          ?.role;
-
-      if (possibleRole) {
-        setRole(possibleRole);
-      }
-
+      storeSession(response);
       navigate("/dashboard");
     } catch (error) {
       const axiosError = error as AxiosError<{
@@ -87,6 +162,36 @@ const Index = () => {
         "Não foi possível entrar. Verifique suas credenciais.";
 
       setErrorMessage(apiMessage);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setIsGooglePending(true);
+    setErrorMessage("");
+
+    try {
+      const response = await api.get("/auth/google/url");
+      const authorizationUrl =
+        response.data?.authorizationUrl || response.data?.data?.authorizationUrl;
+
+      if (!authorizationUrl) {
+        setErrorMessage("URL de autenticação do Google inválida.");
+        return;
+      }
+
+      window.location.assign(authorizationUrl);
+    } catch (error) {
+      const axiosError = error as AxiosError<{
+        message?: string;
+        error?: string;
+      }>;
+
+      setErrorMessage(
+        axiosError.response?.data?.message ||
+          axiosError.response?.data?.error ||
+          "Não foi possível iniciar o login com Google.",
+      );
+      setIsGooglePending(false);
     }
   };
 
@@ -329,6 +434,8 @@ const Index = () => {
 
                 <motion.button
                   type="button"
+                  onClick={handleGoogleLogin}
+                  disabled={isPending || isGooglePending}
                   className="flex h-11 w-full items-center justify-center gap-2.5 rounded-md border border-border/50 bg-background text-sm font-medium text-foreground transition-colors duration-200 hover:border-border hover:bg-muted/30"
                   whileHover={{ scale: 1.005 }}
                   whileTap={{ scale: 0.995 }}
@@ -351,7 +458,7 @@ const Index = () => {
                       fill="#EA4335"
                     />
                   </svg>
-                  Continuar com Google
+                  {isGooglePending ? "Conectando..." : "Continuar com Google"}
                 </motion.button>
               </motion.form>
             </div>

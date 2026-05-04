@@ -44,6 +44,7 @@ import {
   useDocumentos,
   useUsuarios,
   usePermissoes,
+  useCreateReuniao,
 } from "@/services";
 
 import { useAuthStore } from "@/store/useAuthStore";
@@ -168,6 +169,12 @@ function formatTime(dateString?: string) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function todayDateInput() {
+  const date = new Date();
+  const timezoneOffset = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - timezoneOffset).toISOString().slice(0, 10);
 }
 
 function formatCurrency(value?: number) {
@@ -363,6 +370,16 @@ const Dashboard = () => {
   const [empresaSearch, setEmpresaSearch] = useState("");
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [showAddMeeting, setShowAddMeeting] = useState(false);
+  const [meetingForm, setMeetingForm] = useState({
+    titulo: "",
+    empresaId: "",
+    data: todayDateInput(),
+    hora: "",
+    local: "",
+    pauta: "",
+    presencial: true,
+  });
+  const [meetingError, setMeetingError] = useState("");
   const [selectedStage, setSelectedStage] = useState<{
     label: string;
     docs: string[];
@@ -385,6 +402,8 @@ const Dashboard = () => {
     isLoading: loadingReunioes,
     isError: errorReunioes,
   } = useReunioes();
+  const { mutateAsync: createReuniao, isPending: creatingReuniao } =
+    useCreateReuniao();
 
   const {
     data: documentos = [],
@@ -648,6 +667,45 @@ const Dashboard = () => {
 
     return { day, ...meeting };
   }, [highlightedDays, meetingsData, today]);
+
+  const handleCreateMeeting = async () => {
+    setMeetingError("");
+
+    if (
+      !meetingForm.titulo.trim() ||
+      !meetingForm.empresaId ||
+      !meetingForm.data ||
+      !meetingForm.hora
+    ) {
+      setMeetingError("Preencha título, empresa, data e horário.");
+      return;
+    }
+
+    try {
+      await createReuniao({
+        titulo: meetingForm.titulo.trim(),
+        empresaId: Number(meetingForm.empresaId),
+        data: meetingForm.data,
+        hora: meetingForm.hora,
+        local: meetingForm.local.trim(),
+        pauta: meetingForm.pauta.trim(),
+        presencial: meetingForm.presencial,
+      });
+
+      setMeetingForm({
+        titulo: "",
+        empresaId: "",
+        data: todayDateInput(),
+        hora: "",
+        local: "",
+        pauta: "",
+        presencial: true,
+      });
+      setShowAddMeeting(false);
+    } catch {
+      setMeetingError("Não foi possível agendar a reunião.");
+    }
+  };
 
   const allNotifications = useMemo<NotificationItem[]>(() => {
     const contractNotifications: NotificationItem[] = contratos
@@ -1285,17 +1343,46 @@ const Dashboard = () => {
               <input
                 type="text"
                 placeholder="Título"
+                value={meetingForm.titulo}
+                onChange={(e) =>
+                  setMeetingForm((prev) => ({ ...prev, titulo: e.target.value }))
+                }
+                className="h-9 w-full rounded-lg border border-border/25 bg-background/50 px-3 text-[12px] outline-none transition-colors placeholder:text-muted-foreground/30 focus:border-accent/40"
+              />
+
+              <input
+                type="date"
+                value={meetingForm.data}
+                onChange={(e) =>
+                  setMeetingForm((prev) => ({ ...prev, data: e.target.value }))
+                }
                 className="h-9 w-full rounded-lg border border-border/25 bg-background/50 px-3 text-[12px] outline-none transition-colors placeholder:text-muted-foreground/30 focus:border-accent/40"
               />
 
               <div className="grid grid-cols-2 gap-3">
-                <input
-                  type="text"
-                  placeholder="Empresa"
+                <select
+                  value={meetingForm.empresaId}
+                  onChange={(e) =>
+                    setMeetingForm((prev) => ({
+                      ...prev,
+                      empresaId: e.target.value,
+                    }))
+                  }
                   className="h-9 rounded-lg border border-border/25 bg-background/50 px-3 text-[12px] outline-none transition-colors placeholder:text-muted-foreground/30 focus:border-accent/40"
-                />
+                >
+                  <option value="">Empresa</option>
+                  {empresas.map((empresa) => (
+                    <option key={empresa.id} value={empresa.id}>
+                      {empresa.nome}
+                    </option>
+                  ))}
+                </select>
                 <input
-                  type="text"
+                  type="time"
+                  value={meetingForm.hora}
+                  onChange={(e) =>
+                    setMeetingForm((prev) => ({ ...prev, hora: e.target.value }))
+                  }
                   placeholder="Horário (HH:MM)"
                   className="h-9 rounded-lg border border-border/25 bg-background/50 px-3 text-[12px] outline-none transition-colors placeholder:text-muted-foreground/30 focus:border-accent/40"
                 />
@@ -1304,8 +1391,42 @@ const Dashboard = () => {
               <input
                 type="text"
                 placeholder="Local / Link"
-                className="h-9 w-full rounded-lg border border-border/25 bg-background/50 px-3 text-[12px] outline-none transition-colors placeholder:text-muted-foreground/30 focus:border-accent/40"
+                value={meetingForm.local}
+                disabled={!meetingForm.presencial}
+                onChange={(e) =>
+                  setMeetingForm((prev) => ({ ...prev, local: e.target.value }))
+                }
+                className="h-9 w-full rounded-lg border border-border/25 bg-background/50 px-3 text-[12px] outline-none transition-colors placeholder:text-muted-foreground/30 focus:border-accent/40 disabled:cursor-not-allowed disabled:opacity-45"
               />
+
+              <textarea
+                placeholder="Pauta"
+                value={meetingForm.pauta}
+                onChange={(e) =>
+                  setMeetingForm((prev) => ({ ...prev, pauta: e.target.value }))
+                }
+                className="min-h-[72px] w-full rounded-lg border border-border/25 bg-background/50 px-3 py-2 text-[12px] outline-none transition-colors placeholder:text-muted-foreground/30 focus:border-accent/40"
+              />
+
+              <label className="flex items-center gap-2 text-[11px] text-foreground/70">
+                <input
+                  type="checkbox"
+                  checked={meetingForm.presencial}
+                  onChange={(e) =>
+                    setMeetingForm((prev) => ({
+                      ...prev,
+                      presencial: e.target.checked,
+                      local: e.target.checked ? prev.local : "",
+                    }))
+                  }
+                  className="accent-[hsl(var(--accent))]"
+                />
+                Presencial
+              </label>
+
+              {meetingError && (
+                <p className="text-[11px] text-destructive">{meetingError}</p>
+              )}
 
               <div className="flex items-center justify-end gap-2">
                 <motion.button
@@ -1317,12 +1438,13 @@ const Dashboard = () => {
                 </motion.button>
 
                 <motion.button
-                  onClick={() => setShowAddMeeting(false)}
+                  onClick={handleCreateMeeting}
+                  disabled={creatingReuniao}
                   className="h-8 rounded-md bg-accent px-4 text-[11px] font-medium text-accent-foreground"
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
-                  Confirmar
+                  {creatingReuniao ? "Salvando..." : "Confirmar"}
                 </motion.button>
               </div>
             </motion.div>

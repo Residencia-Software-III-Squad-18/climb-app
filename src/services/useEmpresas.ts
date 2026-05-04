@@ -3,7 +3,10 @@ import { api } from "@/api";
 
 export interface Empresa {
   id: number;
+  idEmpresa?: number;
   nome: string;
+  nomeFantasia?: string;
+  razaoSocial?: string;
   cnpj: string;
   email: string;
   telefone: string;
@@ -13,6 +16,25 @@ export interface Empresa {
   cep: string;
   dataCriacao: string;
   dataAtualizacao: string;
+}
+
+type EmpresaApi = Empresa & {
+  idEmpresa?: number;
+  nomeFantasia?: string;
+  razaoSocial?: string;
+  logradouro?: string;
+  uf?: string;
+};
+
+function normalizeEmpresa(empresa: EmpresaApi): Empresa {
+  return {
+    ...empresa,
+    id: empresa.id ?? empresa.idEmpresa ?? 0,
+    idEmpresa: empresa.idEmpresa ?? empresa.id,
+    nome: empresa.nome ?? empresa.nomeFantasia ?? empresa.razaoSocial ?? `Empresa #${empresa.idEmpresa ?? empresa.id}`,
+    endereco: empresa.endereco ?? empresa.logradouro ?? "",
+    estado: empresa.estado ?? empresa.uf ?? "",
+  };
 }
 
 interface CreateEmpresaDTO {
@@ -31,7 +53,7 @@ export function useEmpresas() {
     queryKey: ["empresas"],
     queryFn: async () => {
       const response = await api.get<Empresa[]>("/empresas");
-      return response.data;
+      return response.data.map(normalizeEmpresa);
     },
   });
 }
@@ -41,7 +63,7 @@ export function useEmpresaById(id: number) {
     queryKey: ["empresas", id],
     queryFn: async () => {
       const response = await api.get<Empresa>(`/empresas/${id}`);
-      return response.data;
+      return normalizeEmpresa(response.data);
     },
     enabled: !!id,
   });

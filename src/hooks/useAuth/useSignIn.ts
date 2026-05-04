@@ -11,10 +11,15 @@ export interface Session {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
+  googleAccessToken?: string;
+  googleRefreshToken?: string;
   usuario?: {
     id?: number;
     email?: string;
     nomeCompleto?: string;
+    cargoNome?: string;
+    cargo?: string;
+    role?: string;
   };
 }
 
@@ -31,11 +36,11 @@ export const signInRequest = async (credentials: SignInCredentials) => {
     //   timestamp
     // }
 
-    const { data: sessionData, expiresIn } = response.data;
+    const { data: sessionData } = response.data;
 
     return {
       ...sessionData,
-      expiresIn,
+      expiresIn: sessionData?.expiresIn ?? response.data?.expiresIn,
     };
   } catch (error: unknown) {
     return Promise.reject(error);

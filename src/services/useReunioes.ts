@@ -96,9 +96,9 @@ export function useReunioes() {
   return useQuery<Reuniao[]>({
     queryKey: ["reunioes"],
     queryFn: async () => {
-      const response = await api.get<Reuniao[]>("/reunioes", {
-        headers: buildHeaders(),
-      });
+      // Lista só com JWT (igual integration-pages). Enviar X-Google-Access-Token aqui pode
+      // retornar [] se o token Google estiver expirado/inválido, mesmo com sessão Climb válida.
+      const response = await api.get<Reuniao[]>("/reunioes");
       return response.data.map(normalizeReuniao);
     },
   });
@@ -119,7 +119,9 @@ export function useReunioesByEmpresa(empresaId: number) {
   return useQuery<Reuniao[]>({
     queryKey: ["reunioes", "empresa", empresaId],
     queryFn: async () => {
-      const response = await api.get<Reuniao[]>(`/reunioes/empresa/${empresaId}`);
+      const response = await api.get<Reuniao[]>(
+        `/reunioes/empresa/${empresaId}`,
+      );
       return response.data.map(normalizeReuniao);
     },
     enabled: !!empresaId,

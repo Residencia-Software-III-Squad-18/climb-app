@@ -12,6 +12,8 @@ interface ExchangeCodeResponse {
     accessToken: string;
     refreshToken: string;
     expiresIn: number;
+    /** When present, sent as `X-Google-Access-Token` on agenda APIs for Calendar sync. */
+    googleAccessToken?: string;
     usuario: {
       id: number;
       nomeCompleto: string;

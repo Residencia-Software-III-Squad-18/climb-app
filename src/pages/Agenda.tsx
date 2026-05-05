@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import ClimbLogo from "@/components/login/ClimbLogo";
+import { useCreateReuniao, useDeleteReuniao, useEmpresas, useReunioes, useUpdateReuniao } from "@/services";
 
 const navItems = [
   { icon: Home, label: "Home", path: "/dashboard" },
@@ -28,6 +29,11 @@ interface AgendaEvent {
   local?: string;
   type: "virtual" | "presencial";
   color: string;
+  data?: string;
+  hora?: string;
+  empresaId?: number;
+  pauta?: string;
+  presencial: boolean;
 }
 
 interface KanbanCard {
@@ -82,9 +88,46 @@ const initialKanbanCards: Record<string, KanbanCard[]> = {
 const DOW = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"];
 const WEEK_DAYS = ["SEG", "TER", "QUA", "QUI", "SEX"];
 
-const buildCalendarGrid = () => {
-  const firstDayOfWeek = 0;
-  const daysInMonth = 31;
+const toDateInputValue = () => {
+  const date = new Date();
+  const timezoneOffset = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - timezoneOffset).toISOString().slice(0, 10);
+};
+
+const formatEventTime = (dateString?: string) => {
+  if (!dateString) return "--:--";
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return "--:--";
+  return date.toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const eventDateInput = (date: Date) => {
+  const timezoneOffset = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - timezoneOffset).toISOString().slice(0, 10);
+};
+
+const formatInputTime = (date: Date) =>
+  `${date.getHours().toString().padStart(2, "0")}:${date
+    .getMinutes()
+    .toString()
+    .padStart(2, "0")}`;
+
+const addOneHour = (time: string) => {
+  const [hours = "0", minutes = "0"] = time.split(":");
+  const date = new Date();
+  date.setHours(Number(hours) + 1, Number(minutes), 0, 0);
+  return date.toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const buildCalendarGrid = (year: number, month: number) => {
+  const firstDayOfWeek = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
   const grid: (number | null)[] = [];
   for (let i = 0; i < firstDayOfWeek; i++) grid.push(null);
   for (let d = 1; d <= daysInMonth; d++) grid.push(d);
@@ -99,17 +142,88 @@ const Agenda = () => {
   const { isDark, setIsDark } = useTheme();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeView, setActiveView] = useState<"mes" | "semana" | "lista" | "kanban">("mes");
-  const [kanbanCards, setKanbanCards] = useState(initialKanbanCards);
+  const [kanbanCards, setKanbanCards] = useState<Record<string, KanbanCard[]>>({
+    agendado: [],
+    confirmado: [],
+    realizado: [],
+    cancelado: [],
+  });
   const [showAddEvent, setShowAddEvent] = useState(false);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [draggedCard, setDraggedCard] = useState<{ card: KanbanCard; fromCol: string } | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [eventForm, setEventForm] = useState({
+    titulo: "",
+    empresaId: "",
+    data: toDateInputValue(),
+    hora: "",
+    local: "",
+    pauta: "",
+    presencial: true,
+  });
+  const [eventError, setEventError] = useState("");
+  const [editingEventId, setEditingEventId] = useState<number | null>(null);
   const navigate = useNavigate();
+  const { data: reunioes = [] } = useReunioes();
+  const { data: empresas = [] } = useEmpresas();
+  const { mutateAsync: createReuniao, isPending: creatingReuniao } = useCreateReuniao();
+  const { mutateAsync: updateReuniao, isPending: updatingReuniao } = useUpdateReuniao();
+  const { mutateAsync: deleteReuniao, isPending: deletingReuniao } = useDeleteReuniao();
 
+  const today = new Date();
+  const currentMonth = today.getMonth();
+  const currentYear = today.getFullYear();
+  const currentMonthLabel = today.toLocaleDateString("pt-BR", {
+    month: "long",
+    year: "numeric",
+  });
 
-  const calendarGrid = useMemo(() => buildCalendarGrid(), []);
-  const eventDays = useMemo(() => new Set(Object.keys(monthEvents).map(Number)), []);
+  const calendarGrid = useMemo(() => buildCalendarGrid(currentYear, currentMonth), [currentMonth, currentYear]);
+  const dynamicMonthEvents = useMemo<Record<number, AgendaEvent[]>>(() => {
+    const grouped: Record<number, AgendaEvent[]> = {};
+
+    reunioes.forEach((reuniao) => {
+      const date = new Date(reuniao.dataHora);
+      if (
+        Number.isNaN(date.getTime()) ||
+        date.getMonth() !== currentMonth ||
+        date.getFullYear() !== currentYear
+      ) {
+        return;
+      }
+
+      const day = date.getDate();
+      const empresa =
+        reuniao.empresa?.nome ||
+        reuniao.empresa?.nomeFantasia ||
+        reuniao.empresa?.razaoSocial ||
+        empresas.find((item) => item.id === reuniao.empresaId)?.nome ||
+        `Empresa #${reuniao.empresaId}`;
+
+      grouped[day] = [
+        ...(grouped[day] ?? []),
+        {
+          id: String(reuniao.id),
+          title: reuniao.titulo,
+          time: formatEventTime(reuniao.dataHora),
+          endTime: addOneHour(formatEventTime(reuniao.dataHora)),
+          empresa,
+          local: reuniao.local,
+          type: reuniao.presencial ? "presencial" : "virtual",
+          color: reuniao.googleEventId ? "accent" : "primary",
+          data: reuniao.data ?? eventDateInput(date),
+          hora: reuniao.hora ?? formatInputTime(date),
+          empresaId: reuniao.empresaId,
+          pauta: reuniao.pauta ?? reuniao.descricao,
+          presencial: Boolean(reuniao.presencial),
+        },
+      ];
+    });
+
+    return grouped;
+  }, [reunioes, empresas, currentMonth, currentYear]);
+  const eventDays = useMemo(() => new Set(Object.keys(dynamicMonthEvents).map(Number)), [dynamicMonthEvents]);
 
   const handleDragStart = (card: KanbanCard, fromCol: string) => setDraggedCard({ card, fromCol });
   const handleDragOver = (e: React.DragEvent, colId: string) => { e.preventDefault(); setDragOverCol(colId); };
@@ -125,13 +239,79 @@ const Agenda = () => {
     setDragOverCol(null);
   };
 
+  const handleCreateEvent = async () => {
+    setEventError("");
+
+    if (!eventForm.titulo.trim() || !eventForm.empresaId || !eventForm.data || !eventForm.hora) {
+      setEventError("Preencha pauta, empresa, data e horário.");
+      return;
+    }
+
+    try {
+      const payload = {
+        titulo: eventForm.titulo.trim(),
+        empresaId: Number(eventForm.empresaId),
+        data: eventForm.data,
+        hora: eventForm.hora,
+        local: eventForm.local.trim(),
+        pauta: eventForm.pauta.trim(),
+        presencial: eventForm.presencial,
+      };
+
+      if (editingEventId) {
+        await updateReuniao({ id: editingEventId, data: payload });
+      } else {
+        await createReuniao(payload);
+      }
+
+      setEventForm({
+        titulo: "",
+        empresaId: "",
+        data: toDateInputValue(),
+        hora: "",
+        local: "",
+        pauta: "",
+        presencial: true,
+      });
+      setEditingEventId(null);
+      setShowAddEvent(false);
+    } catch {
+      setEventError("Não foi possível confirmar o agendamento.");
+    }
+  };
+
+  const handleEditEvent = (event: AgendaEvent) => {
+    setEditingEventId(Number(event.id));
+    setEventForm({
+      titulo: event.title,
+      empresaId: event.empresaId ? String(event.empresaId) : "",
+      data: event.data ?? toDateInputValue(),
+      hora: event.hora ?? "",
+      local: event.presencial ? event.local ?? "" : "",
+      pauta: event.pauta ?? "",
+      presencial: event.presencial,
+    });
+    setEventError("");
+    setShowAddEvent(true);
+  };
+
+  const handleDeleteEvent = async (event: AgendaEvent) => {
+    setEventError("");
+
+    try {
+      await deleteReuniao(Number(event.id));
+    } catch {
+      setEventError("Não foi possível excluir o agendamento.");
+    }
+  };
+
   const priorityColors: Record<string, string> = {
     alta: "bg-destructive/10 text-destructive border-destructive/20",
     media: "bg-primary/10 text-primary border-primary/20",
     baixa: "bg-muted/30 text-muted-foreground border-border/20",
   };
 
-  const todayDay = 9;
+  const todayDay = today.getDate();
 
 
   return (
@@ -205,7 +385,7 @@ const Agenda = () => {
                     <div className="flex items-center justify-between px-5 py-4 border-b border-border/15">
                       <div className="flex items-center gap-3">
                         <motion.button className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/20" whileTap={{ scale: 0.9 }}><ChevronLeft className="w-4 h-4" /></motion.button>
-                        <h3 className="text-[15px] font-semibold text-foreground">Março 2026</h3>
+                        <h3 className="text-[15px] font-semibold text-foreground capitalize">{currentMonthLabel}</h3>
                         <motion.button className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/20" whileTap={{ scale: 0.9 }}><ChevronRight className="w-4 h-4" /></motion.button>
                       </div>
                       <button className="h-7 px-3 rounded-md text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted/20 border border-border/25 transition-all">Hoje</button>
@@ -215,7 +395,7 @@ const Agenda = () => {
                     </div>
                     <div className="grid grid-cols-7">
                       {calendarGrid.map((day, i) => {
-                        const events = day ? monthEvents[day] || [] : [];
+                        const events = day ? dynamicMonthEvents[day] || [] : [];
                         const isToday = day === todayDay;
                         const isSelected = day === selectedDay;
                         return (
@@ -240,7 +420,7 @@ const Agenda = () => {
                   <div className="w-[280px] space-y-4 shrink-0">
                     <div className="rounded-xl border border-border/25 bg-card/40 backdrop-blur-sm p-4">
                       <div className="flex items-center justify-between mb-3">
-                        <h4 className="text-[13px] font-semibold text-foreground">Março 2026</h4>
+                        <h4 className="text-[13px] font-semibold text-foreground capitalize">{currentMonthLabel}</h4>
                         <div className="flex gap-1">
                           <button className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground/40 hover:text-foreground"><ChevronLeft className="w-3 h-3" /></button>
                           <button className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground/40 hover:text-foreground"><ChevronRight className="w-3 h-3" /></button>
@@ -261,9 +441,9 @@ const Agenda = () => {
 
                     <div className="rounded-xl border border-border/25 bg-card/40 backdrop-blur-sm p-4">
                       <h4 className="text-[12px] font-semibold text-foreground mb-3">Eventos do dia</h4>
-                      {selectedDay && monthEvents[selectedDay] ? (
+                      {selectedDay && dynamicMonthEvents[selectedDay] ? (
                         <div className="space-y-2">
-                          {monthEvents[selectedDay].map(ev => (
+                          {dynamicMonthEvents[selectedDay].map(ev => (
                             <motion.div key={ev.id} className="rounded-lg border border-border/20 bg-background/50 p-3" initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}>
                               <p className="text-[12px] font-medium text-foreground/80 mb-1">{ev.title}</p>
                               <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50 mb-1"><Clock className="w-3 h-3" /><span>{ev.time} – {ev.endTime}</span></div>
@@ -272,6 +452,23 @@ const Agenda = () => {
                               <div className={`inline-flex items-center gap-1 text-[8px] font-medium px-1.5 py-0.5 rounded-full mt-2 ${ev.type === "virtual" ? "bg-accent/10 text-accent" : "bg-primary/10 text-primary"}`}>
                                 {ev.type === "virtual" ? <Video className="w-2.5 h-2.5" /> : <MapPin className="w-2.5 h-2.5" />}
                                 {ev.type === "virtual" ? "Virtual" : "Presencial"}
+                              </div>
+                              <div className="mt-3 flex items-center justify-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleEditEvent(ev)}
+                                  className="h-7 rounded-md border border-border/25 px-2.5 text-[10px] font-medium text-muted-foreground transition-colors hover:border-accent/30 hover:text-accent"
+                                >
+                                  Editar
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={deletingReuniao}
+                                  onClick={() => handleDeleteEvent(ev)}
+                                  className="h-7 rounded-md border border-destructive/20 px-2.5 text-[10px] font-medium text-destructive transition-colors hover:bg-destructive/5 disabled:opacity-50"
+                                >
+                                  Excluir
+                                </button>
                               </div>
                             </motion.div>
                           ))}
@@ -312,7 +509,7 @@ const Agenda = () => {
                     {WEEK_DAYS.map((d, i) => {
                       const dayNum = weekDayDates[i];
                       const isToday = dayNum === todayDay;
-                      const dayEvents = monthEvents[dayNum] || [];
+                      const dayEvents = dynamicMonthEvents[dayNum] || [];
                       return (
                         <motion.div
                           key={d}
@@ -363,10 +560,10 @@ const Agenda = () => {
               {activeView === "lista" && (
                 <motion.div key="list" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="rounded-xl border border-border/25 bg-card/40 backdrop-blur-sm overflow-hidden">
                   <div className="px-5 py-4 border-b border-border/15">
-                    <h3 className="text-[14px] font-semibold text-foreground">Todos os Eventos — Março 2026</h3>
+                    <h3 className="text-[14px] font-semibold text-foreground capitalize">Todos os Eventos — {currentMonthLabel}</h3>
                   </div>
                   <div className="divide-y divide-border/10 max-h-[calc(100vh-240px)] overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-muted-foreground/20 [&::-webkit-scrollbar-thumb]:rounded-full">
-                    {Object.entries(monthEvents).sort(([a], [b]) => Number(a) - Number(b)).map(([day, events]) =>
+                    {Object.entries(dynamicMonthEvents).sort(([a], [b]) => Number(a) - Number(b)).map(([day, events]) =>
                       events.map(ev => (
                         <motion.div key={ev.id} className="px-5 py-3 flex items-center gap-4 hover:bg-muted/10 transition-colors cursor-pointer" initial={{ opacity: 0 }} animate={{ opacity: 1 }} whileHover={{ x: 2 }}>
                           <div className="w-10 text-center">
@@ -462,6 +659,33 @@ const Agenda = () => {
                 <motion.button onClick={() => setShowAddEvent(false)} className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors" whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}><X className="w-4 h-4" /></motion.button>
               </div>
               <div className="p-5 space-y-4">
+                <div>
+                  <label className="text-[10px] text-muted-foreground/50 font-medium tracking-wider uppercase mb-1.5 block">Pauta</label>
+                  <input type="text" placeholder="Pauta da reunião..." value={eventForm.titulo} onChange={(e) => setEventForm((prev) => ({ ...prev, titulo: e.target.value }))} className="w-full h-10 px-3 rounded-lg border border-border/25 bg-background/50 text-[13px] outline-none focus:border-accent/40 transition-colors placeholder:text-muted-foreground/30" />
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground/50 font-medium tracking-wider uppercase mb-1.5 block">Empresa</label>
+                  <select value={eventForm.empresaId} onChange={(e) => setEventForm((prev) => ({ ...prev, empresaId: e.target.value }))} className="w-full h-10 px-3 rounded-lg border border-border/25 bg-background/50 text-[13px] outline-none focus:border-accent/40 transition-colors">
+                    <option value="">Selecione</option>
+                    {empresas.map((empresa) => <option key={empresa.id} value={empresa.id}>{empresa.nome}</option>)}
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div><label className="text-[10px] text-muted-foreground/50 font-medium tracking-wider uppercase mb-1.5 block">Data</label><input type="date" value={eventForm.data} onChange={(e) => setEventForm((prev) => ({ ...prev, data: e.target.value }))} className="w-full h-10 px-3 rounded-lg border border-border/25 bg-background/50 text-[13px] outline-none focus:border-accent/40 text-foreground" /></div>
+                  <div><label className="text-[10px] text-muted-foreground/50 font-medium tracking-wider uppercase mb-1.5 block">Horário</label><input type="time" value={eventForm.hora} onChange={(e) => setEventForm((prev) => ({ ...prev, hora: e.target.value }))} className="w-full h-10 px-3 rounded-lg border border-border/25 bg-background/50 text-[13px] outline-none focus:border-accent/40 text-foreground" /></div>
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground/50 font-medium tracking-wider uppercase mb-1.5 block">Local</label>
+                  <input type="text" placeholder="Sala, endereço ou link" value={eventForm.local} disabled={!eventForm.presencial} onChange={(e) => setEventForm((prev) => ({ ...prev, local: e.target.value }))} className="w-full h-10 px-3 rounded-lg border border-border/25 bg-background/50 text-[13px] outline-none focus:border-accent/40 transition-colors placeholder:text-muted-foreground/30 disabled:cursor-not-allowed disabled:opacity-45" />
+                </div>
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="tipo-modal" checked={!eventForm.presencial} onChange={() => setEventForm((prev) => ({ ...prev, presencial: false, local: "" }))} className="accent-[hsl(var(--accent))]" /><span className="text-[12px] text-foreground/70">Virtual</span></label>
+                  <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="tipo-modal" checked={eventForm.presencial} onChange={() => setEventForm((prev) => ({ ...prev, presencial: true }))} className="accent-[hsl(var(--accent))]" /><span className="text-[12px] text-foreground/70">Presencial</span></label>
+                </div>
+                {eventError && <p className="text-[11px] text-destructive">{eventError}</p>}
+                <motion.button onClick={handleCreateEvent} disabled={creatingReuniao} className="w-full h-10 rounded-lg bg-accent text-accent-foreground text-[13px] font-semibold shadow-[0_2px_10px_-2px_hsl(var(--accent)/0.3)]" whileHover={{ scale: 1.01, y: -1 }} whileTap={{ scale: 0.98 }}>{creatingReuniao ? "Salvando..." : "Confirmar Agendamento"}</motion.button>
+              </div>
+              <div className="hidden">
                 <div><label className="text-[10px] text-muted-foreground/50 font-medium tracking-wider uppercase mb-1.5 block">Pauta</label><input type="text" placeholder="Pauta da reunião..." className="w-full h-10 px-3 rounded-lg border border-border/25 bg-background/50 text-[13px] outline-none focus:border-accent/40 transition-colors placeholder:text-muted-foreground/30" /></div>
                 <div><label className="text-[10px] text-muted-foreground/50 font-medium tracking-wider uppercase mb-1.5 block">Empresa</label><input type="text" placeholder="Nome da empresa" className="w-full h-10 px-3 rounded-lg border border-border/25 bg-background/50 text-[13px] outline-none focus:border-accent/40 transition-colors placeholder:text-muted-foreground/30" /></div>
                 <div className="grid grid-cols-2 gap-3">

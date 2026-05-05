@@ -15,6 +15,7 @@ import {
   useGoogleAuthUrl,
   useExchangeGoogleCode,
 } from "@/hooks/useAuth/useGoogleAuth";
+import { syncGoogleAccessToken } from "@/lib/googleAccessToken";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useUserRoleStore } from "@/store/useUserRoleStore";
 
@@ -97,6 +98,8 @@ const Index = () => {
         setRole(possibleRole);
       }
 
+      syncGoogleAccessToken(response.googleAccessToken);
+
       navigate("/dashboard");
     } catch (error) {
       const axiosError = error as AxiosError<{
@@ -154,11 +157,12 @@ const Index = () => {
       // Salvar role
       setRole(data.usuario.cargoNome || "USER");
 
+      syncGoogleAccessToken(data.googleAccessToken);
+
       toast.success(`Bem-vindo, ${data.usuario.nomeCompleto}!`);
       navigate("/dashboard");
-    } catch (error) {
+    } catch {
       toast.error("Erro ao processar login com Google");
-      console.error(error);
     }
   };
 

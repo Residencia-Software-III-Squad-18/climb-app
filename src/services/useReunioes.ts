@@ -1,6 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { isAxiosError } from "axios";
 import { api } from "@/api";
-import { GOOGLE_ACCESS_TOKEN_STORAGE_KEY } from "@/lib/googleAccessToken";
+import {
+  GOOGLE_ACCESS_TOKEN_STORAGE_KEY,
+  syncGoogleAccessToken,
+} from "@/lib/googleAccessToken";
 
 export interface Reuniao {
   id: number;
@@ -92,25 +96,61 @@ function getGoogleAccessToken() {
   return localStorage.getItem(GOOGLE_ACCESS_TOKEN_STORAGE_KEY);
 }
 
+/** GET com X-Google-Access-Token quando existir — necessário para o backend mesclar eventos externos do Calendar. */
+async function fetchReuniaoList(path: string): Promise<Reuniao[]> {
+  const hadGoogleToken = !!getGoogleAccessToken();
+  try {
+    const response = await api.get<Reuniao[]>(path, {
+      headers: buildHeaders(),
+    });
+    return response.data.map(normalizeReuniao);
+  } catch (err) {
+    if (
+      hadGoogleToken &&
+      isAxiosError(err) &&
+      (err.response?.status === 401 || err.response?.status === 403)
+    ) {
+      syncGoogleAccessToken(null);
+      const response = await api.get<Reuniao[]>(path);
+      return response.data.map(normalizeReuniao);
+    }
+    throw err;
+  }
+}
+
+async function fetchReuniaoOne(id: number): Promise<Reuniao> {
+  const path = `/reunioes/${id}`;
+  const hadGoogleToken = !!getGoogleAccessToken();
+  try {
+    const response = await api.get<Reuniao>(path, {
+      headers: buildHeaders(),
+    });
+    return normalizeReuniao(response.data);
+  } catch (err) {
+    if (
+      hadGoogleToken &&
+      isAxiosError(err) &&
+      (err.response?.status === 401 || err.response?.status === 403)
+    ) {
+      syncGoogleAccessToken(null);
+      const response = await api.get<Reuniao>(path);
+      return normalizeReuniao(response.data);
+    }
+    throw err;
+  }
+}
+
 export function useReunioes() {
   return useQuery<Reuniao[]>({
     queryKey: ["reunioes"],
-    queryFn: async () => {
-      // Lista só com JWT (igual integration-pages). Enviar X-Google-Access-Token aqui pode
-      // retornar [] se o token Google estiver expirado/inválido, mesmo com sessão Climb válida.
-      const response = await api.get<Reuniao[]>("/reunioes");
-      return response.data.map(normalizeReuniao);
-    },
+    queryFn: () => fetchReuniaoList("/reunioes"),
   });
 }
 
 export function useReuniaoById(id: number) {
   return useQuery<Reuniao>({
     queryKey: ["reunioes", id],
-    queryFn: async () => {
-      const response = await api.get<Reuniao>(`/reunioes/${id}`);
-      return normalizeReuniao(response.data);
-    },
+    queryFn: () => fetchReuniaoOne(id),
     enabled: !!id,
   });
 }
@@ -118,12 +158,7 @@ export function useReuniaoById(id: number) {
 export function useReunioesByEmpresa(empresaId: number) {
   return useQuery<Reuniao[]>({
     queryKey: ["reunioes", "empresa", empresaId],
-    queryFn: async () => {
-      const response = await api.get<Reuniao[]>(
-        `/reunioes/empresa/${empresaId}`,
-      );
-      return response.data.map(normalizeReuniao);
-    },
+    queryFn: () => fetchReuniaoList(`/reunioes/empresa/${empresaId}`),
     enabled: !!empresaId,
   });
 }

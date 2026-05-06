@@ -27,6 +27,8 @@ export interface Reuniao {
   presencial?: boolean;
   status?: string;
   googleEventId?: string;
+  /** Evento de dia inteiro (ex.: Google Calendar com start.date). */
+  diaInteiro?: boolean;
   dataCriacao?: string;
   dataAtualizacao?: string;
 }

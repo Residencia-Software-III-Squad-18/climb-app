@@ -44,11 +44,86 @@ export interface CreateReuniaoDTO {
 
 type ReuniaoApi = Reuniao & {
   idReuniao?: number;
+  /** Resposta bruta da API (Jackson pode enviar data/hora em formatos variados). */
+  data?: unknown;
+  hora?: unknown;
+  dataHora?: string;
 };
 
-function buildDataHora(reuniao: ReuniaoApi) {
-  if (reuniao.dataHora) return reuniao.dataHora;
-  if (reuniao.data && reuniao.hora) return `${reuniao.data}T${reuniao.hora}`;
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+function normalizeDatePart(input: unknown): string | undefined {
+  if (input == null) return undefined;
+  if (typeof input === "string") {
+    const s = input.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    if (s.length >= 10) return s.slice(0, 10);
+    return undefined;
+  }
+  if (Array.isArray(input) && input.length >= 3) {
+    const y = Number(input[0]);
+    const m = Number(input[1]);
+    const d = Number(input[2]);
+    if (Number.isFinite(y) && Number.isFinite(m) && Number.isFinite(d)) {
+      return `${y}-${pad2(m)}-${pad2(d)}`;
+    }
+  }
+  if (typeof input === "object" && input !== null) {
+    const o = input as { year?: number; month?: number; day?: number };
+    if (
+      o.year != null &&
+      o.month != null &&
+      o.day != null &&
+      Number.isFinite(o.year) &&
+      Number.isFinite(o.month) &&
+      Number.isFinite(o.day)
+    ) {
+      return `${o.year}-${pad2(o.month)}-${pad2(o.day)}`;
+    }
+  }
+  return undefined;
+}
+
+function normalizeTimePart(input: unknown): string | undefined {
+  if (input == null) return undefined;
+  if (typeof input === "string") {
+    const s = input.trim();
+    const m = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    if (m) {
+      const h = Number(m[1]);
+      const min = Number(m[2]);
+      const sec = m[3] != null ? Number(m[3]) : 0;
+      if (Number.isFinite(h) && Number.isFinite(min) && Number.isFinite(sec)) {
+        return `${pad2(h)}:${pad2(min)}:${pad2(sec)}`;
+      }
+    }
+    return undefined;
+  }
+  if (Array.isArray(input) && input.length >= 2) {
+    const h = Number(input[0]);
+    const min = Number(input[1]);
+    const sec = input.length > 2 ? Number(input[2]) : 0;
+    if (Number.isFinite(h) && Number.isFinite(min) && Number.isFinite(sec)) {
+      return `${pad2(h)}:${pad2(min)}:${pad2(sec)}`;
+    }
+  }
+  return undefined;
+}
+
+/** Preferência: dataHora ISO da API (integration-pages). Fallback: data + hora normalizados. */
+function buildDataHora(reuniao: ReuniaoApi): string {
+  if (typeof reuniao.dataHora === "string") {
+    const t = reuniao.dataHora.trim();
+    if (t) return t;
+  }
+
+  const datePart = normalizeDatePart(reuniao.data);
+  const timePart = normalizeTimePart(reuniao.hora);
+  if (datePart && timePart) {
+    return `${datePart}T${timePart}`;
+  }
   return "";
 }
 

@@ -29,6 +29,7 @@ export const NAV_ITEMS: NavItem[] = [
   { icon: FileCheck, label: "Documentos", path: "/documentos", module: "documentos" },
   { icon: UsersIcon, label: "Usuários", path: "/usuarios", module: "usuarios" },
   { icon: Settings, label: "Configurações", path: "/configuracoes", module: "configuracoes" },
+  { icon: FileCheck, label: "Meus Documentos", path: "/portal", module: "portal" },
 ];
 
 export function getNavItemsForRole(role: Role) {

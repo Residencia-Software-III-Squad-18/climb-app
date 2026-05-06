@@ -10,7 +10,8 @@ export type ModuleKey =
   | "empresas"
   | "documentos"
   | "usuarios"
-  | "configuracoes";
+  | "configuracoes"
+  | "portal";
 
 export type BlockKey =
   | "config.aparencia"
@@ -20,17 +21,42 @@ export type BlockKey =
   | "config.gestao"
   | "config.administracao";
 
-export type ActionKey = "usuario.criar" | "usuario.editar" | "empresa.criar" | "empresa.editar";
+export type ActionKey =
+  | "usuario.criar"
+  | "usuario.editar"
+  | "empresa.criar"
+  | "empresa.editar"
+  | "documento.upload"
+  | "documento.aprovar"
+  | "documento.reprovar"
+  | "documento.comentar";
+
+export type DocumentoStatus =
+  | "PENDENTE"
+  | "EM_ANALISE"
+  | "APROVADO"
+  | "REPROVADO"
+  | "NECESSITA_CORRECAO"
+  | "EXPIRADO"
+  | "INVALIDO";
+
+export type ProcessoStatus =
+  | "DOCUMENTACAO_EM_ANDAMENTO"
+  | "CONTRATO_EM_ANALISE"
+  | "AGUARDANDO_CORRECOES"
+  | "PROCESSO_APROVADO"
+  | "PROCESSO_CONCLUIDO";
 
 const MODULE_ACCESS: Record<ModuleKey, Role[]> = {
   dashboard: ["ADMIN", "GESTOR", "ANALISTA", "CLIENTE"],
-  contratos: ["ADMIN", "GESTOR", "ANALISTA", "CLIENTE"],
+  contratos: ["ADMIN", "GESTOR", "ANALISTA"],
   agenda: ["ADMIN", "GESTOR", "ANALISTA"],
   permissoes: ["ADMIN", "GESTOR"],
   empresas: ["ADMIN", "GESTOR", "ANALISTA"],
-  documentos: ["ADMIN", "GESTOR", "ANALISTA", "CLIENTE"],
+  documentos: ["ADMIN", "GESTOR", "ANALISTA"],
   usuarios: ["ADMIN", "GESTOR"],
   configuracoes: ["ADMIN", "GESTOR", "ANALISTA", "CLIENTE"],
+  portal: ["CLIENTE"],
 };
 
 const BLOCK_ACCESS: Record<BlockKey, Role[]> = {
@@ -47,6 +73,10 @@ const ACTION_ACCESS: Record<ActionKey, Role[]> = {
   "usuario.editar": ["ADMIN", "GESTOR"],
   "empresa.criar": ["ADMIN", "GESTOR"],
   "empresa.editar": ["ADMIN", "GESTOR"],
+  "documento.upload": ["CLIENTE", "ANALISTA", "ADMIN"],
+  "documento.aprovar": ["ANALISTA", "ADMIN"],
+  "documento.reprovar": ["ANALISTA", "ADMIN"],
+  "documento.comentar": ["ANALISTA", "ADMIN"],
 };
 
 export function normalizeRole(value?: string | null): Role {

@@ -6,24 +6,63 @@ export interface Usuario {
   email: string;
   nomeCompleto: string;
   cargo: string;
-  aceitouTermos: boolean;
+  cargoNome?: string;
+  cpf?: string;
+  contato?: string;
+  situacao?: "ATIVO" | "INATIVO";
+  aceitouTermos?: boolean;
   dataCriacao: string;
   dataAtualizacao: string;
 }
 
-interface CreateUsuarioDTO {
-  email: string;
+export type SituacaoUsuario = "ATIVO" | "INATIVO";
+
+export interface CreateUsuarioDTO {
   nomeCompleto: string;
-  cargo: string;
-  aceitouTermos: boolean;
+  cpf: string;
+  email: string;
+  contato?: string;
+  senha: string;
+  situacao?: SituacaoUsuario;
+  cargoId: number;
+}
+
+interface UsuarioApiResponse {
+  id: number;
+  nomeCompleto: string;
+  cpf?: string;
+  email: string;
+  contato?: string;
+  situacao?: SituacaoUsuario;
+  cargoNome?: string;
+  dataCriacao: string;
+  dataAtualizacao: string;
+}
+
+function normalizeUsuario(usuario: UsuarioApiResponse): Usuario {
+  return {
+    id: usuario.id,
+    email: usuario.email,
+    nomeCompleto: usuario.nomeCompleto,
+    cargo: usuario.cargoNome ?? "",
+    cargoNome: usuario.cargoNome,
+    cpf: usuario.cpf,
+    contato: usuario.contato,
+    situacao: usuario.situacao,
+    aceitouTermos: false,
+    dataCriacao: usuario.dataCriacao,
+    dataAtualizacao: usuario.dataAtualizacao,
+  };
 }
 
 export function useUsuarios() {
   return useQuery<Usuario[]>({
     queryKey: ["usuarios"],
     queryFn: async () => {
-      const response = await api.get<Usuario[]>("/usuarios");
-      return response.data;
+      const response = await api.get<UsuarioApiResponse[] | { content: UsuarioApiResponse[] }>("/usuarios");
+      const data = response.data;
+      const usuarios = Array.isArray(data) ? data : data?.content ?? [];
+      return usuarios.map(normalizeUsuario);
     },
   });
 }
@@ -32,8 +71,8 @@ export function useUsuarioById(id: number) {
   return useQuery<Usuario>({
     queryKey: ["usuarios", id],
     queryFn: async () => {
-      const response = await api.get<Usuario>(`/usuarios/${id}`);
-      return response.data;
+      const response = await api.get<UsuarioApiResponse>(`/usuarios/${id}`);
+      return normalizeUsuario(response.data);
     },
     enabled: !!id,
   });

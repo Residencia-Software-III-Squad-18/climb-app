@@ -2,23 +2,15 @@ import { useState, useMemo } from "react";
 import { useTheme } from "@/hooks/use-theme";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Home, FileText, Calendar as CalendarIcon, Shield, Building2, Settings,
+  Calendar as CalendarIcon,
   LogOut, Sun, Moon, ChevronLeft, ChevronRight, Plus, Search,
-  Clock, MapPin, X, GripVertical, Video, FileCheck
+  Clock, MapPin, X, GripVertical, Video, Building2
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import ClimbLogo from "@/components/login/ClimbLogo";
 import { useCreateReuniao, useDeleteReuniao, useEmpresas, useReunioes, useUpdateReuniao } from "@/services";
-
-const navItems = [
-  { icon: Home, label: "Home", path: "/dashboard" },
-  { icon: FileText, label: "Contratos", path: "/contratos" },
-  { icon: CalendarIcon, label: "Agenda", path: "/agenda" },
-  { icon: Shield, label: "Permissões", path: "/permissoes" },
-  { icon: Building2, label: "Empresas", path: "/empresas" },
-  { icon: FileCheck, label: "Documentos", path: "/documentos" },
-  { icon: Settings, label: "Configurações", path: "/dashboard" },
-];
+import { useCurrentRole } from "@/hooks/useAccess";
+import { getNavItemsForRole } from "@/lib/navItems";
 
 interface AgendaEvent {
   id: string;
@@ -140,6 +132,8 @@ const weekDayDates = [9, 10, 11, 12, 13];
 
 const Agenda = () => {
   const { isDark, setIsDark } = useTheme();
+  const currentRole = useCurrentRole();
+  const navItems = useMemo(() => getNavItemsForRole(currentRole), [currentRole]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeView, setActiveView] = useState<"mes" | "semana" | "lista" | "kanban">("mes");
   const [kanbanCards, setKanbanCards] = useState<Record<string, KanbanCard[]>>({
@@ -328,13 +322,16 @@ const Agenda = () => {
             {sidebarCollapsed ? <motion.div className="w-7 h-7 rounded-lg bg-accent/10 flex items-center justify-center" whileHover={{ scale: 1.05 }}><span className="text-accent font-bold text-xs">C</span></motion.div> : <ClimbLogo className="h-[16px] text-foreground" />}
           </div>
           <nav className="flex-1 py-4 px-2 space-y-1">
-            {navItems.map((item) => (
-              <motion.button key={item.label} onClick={() => navigate(item.path)} className={`w-full flex items-center gap-3 rounded-lg transition-all duration-200 group relative ${sidebarCollapsed ? "justify-center px-2 py-2.5" : "px-3 py-2.5"} ${item.label === "Agenda" ? "bg-accent/10 text-accent" : "text-muted-foreground hover:text-foreground hover:bg-muted/30"}`} whileHover={{ x: sidebarCollapsed ? 0 : 2 }} whileTap={{ scale: 0.98 }}>
-                {item.label === "Agenda" && <motion.div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-accent" layoutId="activeNav" />}
-                <item.icon className="w-[18px] h-[18px] shrink-0" />
-                {!sidebarCollapsed && <span className="text-[13px] font-medium">{item.label}</span>}
-              </motion.button>
-            ))}
+            {navItems.map((item) => {
+              const isActive = item.path === "/agenda";
+              return (
+                <motion.button key={item.label} onClick={() => navigate(item.path)} className={`w-full flex items-center gap-3 rounded-lg transition-all duration-200 group relative ${sidebarCollapsed ? "justify-center px-2 py-2.5" : "px-3 py-2.5"} ${isActive ? "bg-accent/10 text-accent" : "text-muted-foreground hover:text-foreground hover:bg-muted/30"}`} whileHover={{ x: sidebarCollapsed ? 0 : 2 }} whileTap={{ scale: 0.98 }}>
+                  {isActive && <motion.div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-accent" layoutId="activeNav" />}
+                  <item.icon className="w-[18px] h-[18px] shrink-0" />
+                  {!sidebarCollapsed && <span className="text-[13px] font-medium">{item.label}</span>}
+                </motion.button>
+              );
+            })}
           </nav>
           <div className="border-t border-border/20 py-3 px-2 space-y-1">
             <motion.button onClick={() => setIsDark(!isDark)} className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-all ${sidebarCollapsed ? "justify-center" : ""}`} whileTap={{ scale: 0.98 }}>

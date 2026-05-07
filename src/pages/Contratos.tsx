@@ -2,14 +2,16 @@ import { useState, useMemo } from "react";
 import { useTheme } from "@/hooks/use-theme";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  LogOut, Sun, Moon, ChevronLeft, ChevronRight, Search, Plus, X
+  LogOut, Sun, Moon, ChevronLeft, ChevronRight, Search, Plus, X, Pencil, Trash2, AlertTriangle, Loader2
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import ClimbLogo from "@/components/login/ClimbLogo";
-import { useContratos, Contrato } from "@/services";
-import { useCurrentRole } from "@/hooks/useAccess";
+import { useContratos, Contrato, useDeleteContrato } from "@/services";
+import { useCanPerformAction, useCurrentRole } from "@/hooks/useAccess";
 import { getNavItemsForRole } from "@/lib/navItems";
 import { useAuthStore } from "@/store/useAuthStore";
+import { ContratoFormModal } from "@/components/contratos/ContratoFormModal";
+import { toastErro, toastSucesso } from "@/lib/toast";
 
 const statusStyles: Record<string, string> = {
   "ATIVO": "bg-accent/10 text-accent",
@@ -21,6 +23,14 @@ const statusStyles: Record<string, string> = {
 type FilterTab = "Todos" | "Ativos" | "Em análise" | "Pendente" | "Concluído";
 const tabs: FilterTab[] = ["Todos", "Ativos", "Em análise", "Pendente", "Concluído"];
 
+const tabToStatus: Record<FilterTab, string | null> = {
+  "Todos": null,
+  "Ativos": "ATIVO",
+  "Em análise": "ANALISE",
+  "Pendente": "PENDENTE",
+  "Concluído": "CONCLUIDO",
+};
+
 const Contratos = () => {
   const { isDark, setIsDark } = useTheme();
   const currentRole = useCurrentRole();
@@ -29,22 +39,46 @@ const Contratos = () => {
   const userInitials = (basicUserData?.nomeCompleto || "U")
     .split(" ").filter(Boolean).slice(0, 2)
     .map((s: string) => s[0].toUpperCase()).join("");
+
+  const canCreate = useCanPerformAction("proposta.criar");
+  const canEdit = useCanPerformAction("proposta.editar");
+  const canDelete = useCanPerformAction("proposta.excluir");
+
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState<FilterTab>("Todos");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedContrato, setSelectedContrato] = useState<Contrato | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editandoContrato, setEditandoContrato] = useState<Contrato | null>(null);
+  const [deletandoId, setDeletandoId] = useState<number | null>(null);
   const navigate = useNavigate();
 
   const { data: contratos = [], isLoading, error } = useContratos();
+  const deletar = useDeleteContrato();
 
   const filtered = useMemo(() => {
     if (!contratos.length) return [];
-    return contratos.filter(c => {
-      const matchSearch = c.titulo?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    const statusFiltro = tabToStatus[activeTab];
+    return contratos.filter((c) => {
+      const matchSearch =
+        c.titulo?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.descricao?.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchSearch;
+      const matchTab = !statusFiltro || c.status === statusFiltro;
+      return matchSearch && matchTab;
     });
-  }, [searchQuery, contratos]);
+  }, [searchQuery, activeTab, contratos]);
+
+  const handleDelete = async (id: number) => {
+    try {
+      await deletar.mutateAsync(id);
+      toastSucesso("Contrato excluído.");
+      setSelectedContrato(null);
+      setDeletandoId(null);
+    } catch {
+      toastErro("Não foi possível excluir o contrato.");
+      setDeletandoId(null);
+    }
+  };
 
   return (
     <div className="relative min-h-screen bg-background text-foreground transition-colors duration-500 overflow-hidden">
@@ -98,9 +132,15 @@ const Contratos = () => {
                 <h1 className="text-[22px] font-bold text-foreground tracking-tight">Contratos</h1>
                 <p className="text-[12px] text-muted-foreground/50 mt-0.5">{isLoading ? "Carregando..." : `${filtered.length} de ${contratos.length} contratos`}</p>
               </div>
-              <motion.button className="h-9 px-4 rounded-lg bg-accent text-accent-foreground text-[12px] font-semibold flex items-center gap-2 shadow-[0_2px_10px_-2px_hsl(var(--accent)/0.3)]" whileHover={{ scale: 1.02, y: -1 }} whileTap={{ scale: 0.98 }}>
-                <Plus className="w-3.5 h-3.5" /> Novo Contrato
-              </motion.button>
+              {canCreate && (
+                <motion.button
+                  onClick={() => setFormOpen(true)}
+                  className="h-9 px-4 rounded-lg bg-accent text-accent-foreground text-[12px] font-semibold flex items-center gap-2 shadow-[0_2px_10px_-2px_hsl(var(--accent)/0.3)]"
+                  whileHover={{ scale: 1.02, y: -1 }} whileTap={{ scale: 0.98 }}
+                >
+                  <Plus className="w-3.5 h-3.5" /> Novo Contrato
+                </motion.button>
+              )}
             </div>
           </div>
 
@@ -129,20 +169,32 @@ const Contratos = () => {
                     <motion.div
                       key={c.id}
                       className="px-5 py-4 hover:bg-muted/10 transition-colors cursor-pointer group border-b border-border/5 last:border-0"
-                      onClick={() => setSelectedContrato(c)}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: i * 0.03 }}
-                      whileHover={{ x: 2 }}
+                      initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }}
                     >
                       <div className="flex items-center gap-4">
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0" onClick={() => setSelectedContrato(c)}>
                           <p className="text-[12px] font-semibold text-foreground">CT-{c.id}</p>
-                          <p className="text-[11px] text-foreground/70 group-hover:text-accent transition-colors">{c.titulo}</p>
+                          <p className="text-[11px] text-foreground/70 group-hover:text-accent transition-colors truncate">{c.titulo}</p>
                         </div>
-                        <div className="text-right">
-                          <p className="text-[12px] font-medium text-foreground/80">R$ {c.valor}</p>
-                          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full w-fit inline-block ${statusStyles[c.status] || "bg-muted/10 text-muted-foreground"}`}>{c.status}</span>
+                        <div className="flex items-center gap-2">
+                          <div className="text-right" onClick={() => setSelectedContrato(c)}>
+                            <p className="text-[12px] font-medium text-foreground/80">R$ {c.valor}</p>
+                            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full w-fit inline-block ${statusStyles[c.status] || "bg-muted/10 text-muted-foreground"}`}>{c.status}</span>
+                          </div>
+                          {(canEdit || canDelete) && (
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              {canEdit && (
+                                <button onClick={(e) => { e.stopPropagation(); setEditandoContrato(c); }} className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/5 hover:text-accent transition-colors">
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                              {canDelete && (
+                                <button onClick={(e) => { e.stopPropagation(); setDeletandoId(c.id); }} className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/5 hover:text-destructive transition-colors">
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </motion.div>
@@ -175,21 +227,69 @@ const Contratos = () => {
                   </div>
                   <div className="rounded-lg border border-border/20 bg-background/50 p-4">
                     <p className="text-[10px] text-muted-foreground/40 mb-1 uppercase tracking-wider">Status</p>
-                    <span className={`text-[11px] font-medium px-2.5 py-0.5 rounded-full inline-block ${statusStyles[selectedContrato.status]}`}>{selectedContrato.status}</span>
+                    <span className={`text-[11px] font-medium px-2.5 py-0.5 rounded-full inline-block ${statusStyles[selectedContrato.status] || "bg-muted/10 text-muted-foreground"}`}>{selectedContrato.status}</span>
                   </div>
                 </div>
-                <div>
-                  <p className="text-[10px] text-muted-foreground/40 mb-2 uppercase tracking-wider">Descrição</p>
-                  <p className="text-[12px] text-foreground/70">{selectedContrato.descricao || "Sem descrição"}</p>
-                </div>
+                {selectedContrato.descricao && (
+                  <div>
+                    <p className="text-[10px] text-muted-foreground/40 mb-2 uppercase tracking-wider">Descrição</p>
+                    <p className="text-[12px] text-foreground/70">{selectedContrato.descricao}</p>
+                  </div>
+                )}
                 <div className="flex gap-2">
-                  <motion.button className="flex-1 h-10 rounded-lg bg-accent text-accent-foreground text-[12px] font-semibold" whileHover={{ scale: 1.02, y: -1 }} whileTap={{ scale: 0.98 }}>Ver Contrato</motion.button>
+                  {canEdit && (
+                    <motion.button
+                      onClick={() => { setEditandoContrato(selectedContrato); setSelectedContrato(null); }}
+                      className="flex-1 h-10 rounded-lg border border-border/25 bg-card/40 text-[12px] text-foreground/70 hover:border-accent/30 hover:text-accent transition-all flex items-center justify-center gap-2"
+                      whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }}
+                    >
+                      <Pencil className="h-3.5 w-3.5" /> Editar
+                    </motion.button>
+                  )}
+                  {canDelete && (
+                    <motion.button
+                      onClick={() => { setDeletandoId(selectedContrato.id); setSelectedContrato(null); }}
+                      className="h-10 px-4 rounded-lg border border-destructive/20 bg-destructive/5 text-[12px] text-destructive hover:bg-destructive/10 transition-all flex items-center gap-2"
+                      whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> Excluir
+                    </motion.button>
+                  )}
                 </div>
               </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Delete Confirmation */}
+      <AnimatePresence>
+        {deletandoId !== null && (
+          <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div className="absolute inset-0 bg-background/80 backdrop-blur-md" onClick={() => setDeletandoId(null)} />
+            <motion.div className="relative z-10 w-full max-w-sm rounded-2xl border border-border/30 bg-card/95 backdrop-blur-xl shadow-2xl p-6" initial={{ scale: 0.92, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.92, opacity: 0, y: 20 }}>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-destructive/10 flex items-center justify-center">
+                  <AlertTriangle className="w-5 h-5 text-destructive" />
+                </div>
+                <div>
+                  <h3 className="text-[14px] font-semibold text-foreground">Excluir contrato</h3>
+                  <p className="text-[11px] text-muted-foreground/50">Esta ação não pode ser desfeita.</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => setDeletandoId(null)} className="flex-1 h-10 rounded-lg border border-border/25 bg-card/40 text-[12px] text-foreground/70 hover:text-foreground transition-all">Cancelar</button>
+                <button onClick={() => handleDelete(deletandoId)} disabled={deletar.isPending} className="flex-1 h-10 rounded-lg bg-destructive text-[12px] font-semibold text-white hover:bg-destructive/90 transition-all flex items-center justify-center gap-2">
+                  {deletar.isPending ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Excluindo...</> : "Confirmar exclusão"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {formOpen && <ContratoFormModal onClose={() => setFormOpen(false)} />}
+      {editandoContrato && <ContratoFormModal contrato={editandoContrato} onClose={() => setEditandoContrato(null)} />}
     </div>
   );
 };

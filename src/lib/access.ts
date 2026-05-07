@@ -11,7 +11,9 @@ export type ModuleKey =
   | "documentos"
   | "usuarios"
   | "configuracoes"
-  | "portal";
+  | "portal"
+  | "propostas"
+  | "relatorios";
 
 export type BlockKey =
   | "config.aparencia"
@@ -24,12 +26,20 @@ export type BlockKey =
 export type ActionKey =
   | "usuario.criar"
   | "usuario.editar"
+  | "usuario.excluir"
   | "empresa.criar"
   | "empresa.editar"
+  | "empresa.excluir"
   | "documento.upload"
   | "documento.aprovar"
   | "documento.reprovar"
-  | "documento.comentar";
+  | "documento.comentar"
+  | "proposta.criar"
+  | "proposta.editar"
+  | "proposta.excluir"
+  | "permissao.criar"
+  | "permissao.editar"
+  | "permissao.excluir";
 
 export type DocumentoStatus =
   | "PENDENTE"
@@ -57,6 +67,8 @@ const MODULE_ACCESS: Record<ModuleKey, Role[]> = {
   usuarios: ["ADMIN", "GESTOR"],
   configuracoes: ["ADMIN", "GESTOR", "ANALISTA", "CLIENTE"],
   portal: ["CLIENTE"],
+  propostas: ["ADMIN", "GESTOR", "ANALISTA"],
+  relatorios: ["ADMIN", "GESTOR"],
 };
 
 const BLOCK_ACCESS: Record<BlockKey, Role[]> = {
@@ -71,12 +83,20 @@ const BLOCK_ACCESS: Record<BlockKey, Role[]> = {
 const ACTION_ACCESS: Record<ActionKey, Role[]> = {
   "usuario.criar": ["ADMIN", "GESTOR"],
   "usuario.editar": ["ADMIN", "GESTOR"],
+  "usuario.excluir": ["ADMIN"],
   "empresa.criar": ["ADMIN", "GESTOR"],
   "empresa.editar": ["ADMIN", "GESTOR"],
+  "empresa.excluir": ["ADMIN"],
   "documento.upload": ["CLIENTE", "ANALISTA", "ADMIN"],
   "documento.aprovar": ["ANALISTA", "ADMIN"],
   "documento.reprovar": ["ANALISTA", "ADMIN"],
   "documento.comentar": ["ANALISTA", "ADMIN"],
+  "proposta.criar": ["ADMIN", "GESTOR", "ANALISTA"],
+  "proposta.editar": ["ADMIN", "GESTOR", "ANALISTA"],
+  "proposta.excluir": ["ADMIN", "GESTOR"],
+  "permissao.criar": ["ADMIN"],
+  "permissao.editar": ["ADMIN"],
+  "permissao.excluir": ["ADMIN"],
 };
 
 export function normalizeRole(value?: string | null): Role {

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  AlertTriangle,
   Calendar as CalendarIcon,
   ChevronLeft,
   ChevronRight,
@@ -9,6 +10,7 @@ import {
   FileText,
   Home,
   IdCard,
+  Loader2,
   LogOut,
   Mail,
   Moon,
@@ -19,6 +21,7 @@ import {
   Settings,
   Shield,
   Sun,
+  Trash2,
   Users as UsersIcon,
   X,
 } from "lucide-react";
@@ -34,6 +37,8 @@ import { Usuario, useUsuarios } from "@/services";
 
 import { NovoUsuarioModal } from "@/components/usuarios/NovoUsuarioModal";
 import { EditarUsuarioModal } from "@/components/usuarios/EditarUsuarioModal";
+import { useDeleteUsuario } from "@/services";
+import { toastErro, toastSucesso } from "@/lib/toast";
 
 type SituacaoFiltro = "TODOS" | "ATIVO" | "INATIVO";
 
@@ -54,6 +59,8 @@ export default function Usuarios() {
   const currentRole = useCurrentRole();
   const navItems = useMemo(() => getNavItemsForRole(currentRole), [currentRole]);
   const canCreateUsuario = useCanPerformAction("usuario.criar");
+  const canEditUsuario = useCanPerformAction("usuario.editar");
+  const canDeleteUsuario = useCanPerformAction("usuario.excluir");
   const { isDark, setIsDark } = useTheme();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [search, setSearch] = useState("");
@@ -62,9 +69,23 @@ export default function Usuarios() {
   const [novoOpen, setNovoOpen] = useState(false);
   const [selected, setSelected] = useState<Usuario | null>(null);
   const [editando, setEditando] = useState<Usuario | null>(null);
+  const [deletandoId, setDeletandoId] = useState<number | null>(null);
   const navigate = useNavigate();
 
   const { data: usuarios = [], isLoading, error } = useUsuarios();
+  const deletar = useDeleteUsuario();
+
+  const handleDelete = async (id: number) => {
+    try {
+      await deletar.mutateAsync(id);
+      toastSucesso("Usuário excluído.");
+      setSelected(null);
+      setDeletandoId(null);
+    } catch {
+      toastErro("Não foi possível excluir o usuário.");
+      setDeletandoId(null);
+    }
+  };
 
   const cargosList = useMemo(() => {
     const values = new Set<string>();
@@ -327,13 +348,24 @@ export default function Usuarios() {
                           >
                             <Eye className="h-4 w-4" />
                           </button>
-                          <button
-                            onClick={() => setEditando(usuario)}
-                            className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/5 hover:text-accent"
-                            aria-label="Editar"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
+                          {canEditUsuario && (
+                            <button
+                              onClick={() => setEditando(usuario)}
+                              className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/5 hover:text-accent"
+                              aria-label="Editar"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                          )}
+                          {canDeleteUsuario && (
+                            <button
+                              onClick={() => setDeletandoId(usuario.id)}
+                              className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/5 hover:text-destructive"
+                              aria-label="Excluir"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
                         </div>
                       </motion.div>
                     );
@@ -401,6 +433,31 @@ export default function Usuarios() {
 
       {canCreateUsuario ? <NovoUsuarioModal open={novoOpen} onClose={() => setNovoOpen(false)} /> : null}
       {editando ? <EditarUsuarioModal usuario={editando} onClose={() => setEditando(null)} /> : null}
+
+      <AnimatePresence>
+        {deletandoId !== null && (
+          <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div className="absolute inset-0 bg-background/80 backdrop-blur-md" onClick={() => setDeletandoId(null)} />
+            <motion.div className="relative z-10 w-full max-w-sm rounded-2xl border border-border/30 bg-card/95 backdrop-blur-xl shadow-2xl p-6" initial={{ scale: 0.92, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.92, opacity: 0, y: 20 }}>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-destructive/10 flex items-center justify-center">
+                  <AlertTriangle className="w-5 h-5 text-destructive" />
+                </div>
+                <div>
+                  <h3 className="text-[14px] font-semibold text-foreground">Excluir usuário</h3>
+                  <p className="text-[11px] text-muted-foreground/50">Esta ação não pode ser desfeita.</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => setDeletandoId(null)} className="flex-1 h-10 rounded-lg border border-border/25 bg-card/40 text-[12px] text-foreground/70 hover:text-foreground transition-all">Cancelar</button>
+                <button onClick={() => handleDelete(deletandoId)} disabled={deletar.isPending} className="flex-1 h-10 rounded-lg bg-destructive text-[12px] font-semibold text-white hover:bg-destructive/90 transition-all flex items-center justify-center gap-2">
+                  {deletar.isPending ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Excluindo...</> : "Confirmar exclusão"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

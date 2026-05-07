@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
+  AlertTriangle,
   Building2,
   Calendar as CalendarIcon,
   ChevronLeft,
@@ -10,6 +11,7 @@ import {
   FileText,
   Filter,
   Home,
+  Loader2,
   LogOut,
   Map,
   Moon,
@@ -18,6 +20,7 @@ import {
   Settings,
   Shield,
   Sun,
+  Trash2,
   X,
 } from "lucide-react";
 
@@ -27,7 +30,8 @@ import ClimbLogo from "@/components/login/ClimbLogo";
 import { useCanPerformAction, useCurrentRole } from "@/hooks/useAccess";
 import { useTheme } from "@/hooks/use-theme";
 import { getNavItemsForRole } from "@/lib/navItems";
-import { Empresa, useEmpresas } from "@/services";
+import { Empresa, useEmpresas, useDeleteEmpresa } from "@/services";
+import { toastErro, toastSucesso } from "@/lib/toast";
 
 type ViewMode = "lista" | "mapa";
 
@@ -49,14 +53,29 @@ const EmpresasIndex = () => {
   const currentRole = useCurrentRole();
   const navItems = useMemo(() => getNavItemsForRole(currentRole), [currentRole]);
   const canCreateEmpresa = useCanPerformAction("empresa.criar");
+  const canDeleteEmpresa = useCanPerformAction("empresa.excluir");
   const { isDark, setIsDark } = useTheme();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [selectedEmpresa, setSelectedEmpresa] = useState<Empresa | null>(null);
   const [editandoEmpresa, setEditandoEmpresa] = useState<Empresa | null>(null);
+  const [deletandoId, setDeletandoId] = useState<number | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
   const { data: empresas = [], isLoading, error } = useEmpresas();
+  const deletar = useDeleteEmpresa();
+
+  const handleDelete = async (id: number) => {
+    try {
+      await deletar.mutateAsync(id);
+      toastSucesso("Empresa excluída.");
+      setSelectedEmpresa(null);
+      setDeletandoId(null);
+    } catch {
+      toastErro("Não foi possível excluir a empresa.");
+      setDeletandoId(null);
+    }
+  };
 
   const view = (searchParams.get("view") as ViewMode) || "lista";
   const search = searchParams.get("q") || "";
@@ -523,6 +542,17 @@ const EmpresasIndex = () => {
                   >
                     Editar
                   </motion.button>
+                  {canDeleteEmpresa && (
+                    <motion.button
+                      onClick={() => { setDeletandoId(selectedEmpresa.id); setSelectedEmpresa(null); }}
+                      className="h-10 px-3 rounded-lg border border-destructive/20 bg-destructive/5 text-destructive hover:bg-destructive/10 transition-all"
+                      whileHover={{ y: -1 }}
+                      whileTap={{ scale: 0.98 }}
+                      type="button"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </motion.button>
+                  )}
                 </div>
               </div>
             </motion.div>
@@ -536,6 +566,31 @@ const EmpresasIndex = () => {
           onClose={() => setEditandoEmpresa(null)}
         />
       )}
+
+      <AnimatePresence>
+        {deletandoId !== null && (
+          <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div className="absolute inset-0 bg-background/80 backdrop-blur-md" onClick={() => setDeletandoId(null)} />
+            <motion.div className="relative z-10 w-full max-w-sm rounded-2xl border border-border/30 bg-card/95 backdrop-blur-xl shadow-2xl p-6" initial={{ scale: 0.92, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.92, opacity: 0, y: 20 }}>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-destructive/10 flex items-center justify-center">
+                  <AlertTriangle className="w-5 h-5 text-destructive" />
+                </div>
+                <div>
+                  <h3 className="text-[14px] font-semibold text-foreground">Excluir empresa</h3>
+                  <p className="text-[11px] text-muted-foreground/50">Esta ação não pode ser desfeita.</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => setDeletandoId(null)} className="flex-1 h-10 rounded-lg border border-border/25 bg-card/40 text-[12px] text-foreground/70 hover:text-foreground transition-all">Cancelar</button>
+                <button onClick={() => handleDelete(deletandoId)} disabled={deletar.isPending} className="flex-1 h-10 rounded-lg bg-destructive text-[12px] font-semibold text-white hover:bg-destructive/90 transition-all flex items-center justify-center gap-2">
+                  {deletar.isPending ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Excluindo...</> : "Confirmar exclusão"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

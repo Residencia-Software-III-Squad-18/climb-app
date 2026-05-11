@@ -28,7 +28,7 @@ const Permissoes = () => {
   const { data: permissoes = [], isLoading, error } = usePermissoes();
 
   const filtered = permissoes.filter(p => 
-    p.nome?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.descricao?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     p.codigo?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -114,7 +114,7 @@ const Permissoes = () => {
                     ) : (
                       filtered.map((perm, pi) => (
                         <motion.tr
-                          key={perm.id}
+                          key={perm.idPermissao}
                           className="border-b border-border/8 hover:bg-muted/10 transition-colors"
                           initial={{ opacity: 0, x: -10 }}
                           animate={{ opacity: 1, x: 0 }}
@@ -122,7 +122,7 @@ const Permissoes = () => {
                         >
                           <td className="px-4 py-3 text-[11px] text-foreground/80 leading-relaxed sticky left-0 bg-card/90 backdrop-blur-sm z-10">
                             <div>
-                              <p className="font-medium">{perm.nome}</p>
+                              <p className="font-medium">{perm.codigo}</p>
                               <p className="text-muted-foreground/40 text-[9px]">{perm.descricao}</p>
                             </div>
                           </td>

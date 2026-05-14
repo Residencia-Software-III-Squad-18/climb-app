@@ -31,7 +31,6 @@ export const NAV_ITEMS: NavItem[] = [
   { icon: FileCheck, label: "Documentos", path: "/documentos", module: "documentos" },
   { icon: UsersIcon, label: "Usuários", path: "/usuarios", module: "usuarios" },
   { icon: Settings, label: "Configurações", path: "/configuracoes", module: "configuracoes" },
-  { icon: FileCheck, label: "Meus Documentos", path: "/portal", module: "portal" },
   { icon: ClipboardList, label: "Propostas", path: "/propostas", module: "propostas" },
   { icon: BarChart3, label: "Relatórios", path: "/relatorios", module: "relatorios" },
 ];

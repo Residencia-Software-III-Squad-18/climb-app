@@ -19,7 +19,6 @@ import Documentos from "./pages/Documentos.tsx";
 import Contratos from "./pages/Contratos.tsx";
 import Usuarios from "./pages/Usuarios.tsx";
 import Configuracoes from "./pages/Configuracoes.tsx";
-import PortalCliente from "./pages/PortalCliente.tsx";
 import Propostas from "./pages/Propostas.tsx";
 import Relatorios from "./pages/Relatorios.tsx";
 import NotFound from "./pages/NotFound.tsx";
@@ -148,14 +147,6 @@ const App = () => (
               }
             />
 
-            <Route
-              path="/portal"
-              element={
-                <PrivateRoute>
-                  <PortalCliente />
-                </PrivateRoute>
-              }
-            />
             <Route
               path="/propostas"
               element={

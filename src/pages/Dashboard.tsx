@@ -1636,7 +1636,7 @@ const Dashboard = () => {
               variants={itemVariants}
             >
               <div className="flex items-center gap-3">
-                {canAccessModule(currentRole, "contratos") && currentRole !== "CLIENTE" && (
+                {canAccessModule(currentRole, "contratos") && (
                   <motion.button
                     className="flex h-9 items-center gap-2 rounded-lg bg-accent px-4 text-[12px] font-semibold text-accent-foreground shadow-[0_2px_10px_-2px_hsl(var(--accent)/0.3)]"
                     whileHover={{ scale: 1.02, y: -1 }}

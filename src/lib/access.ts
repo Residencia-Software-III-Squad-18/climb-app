@@ -1,6 +1,6 @@
-export type Role = "ADMIN" | "GESTOR" | "ANALISTA" | "CLIENTE";
+export type Role = "ADMIN" | "GESTOR" | "ANALISTA";
 
-export const ROLES: Role[] = ["ADMIN", "GESTOR", "ANALISTA", "CLIENTE"];
+export const ROLES: Role[] = ["ADMIN", "GESTOR", "ANALISTA"];
 
 export type ModuleKey =
   | "dashboard"
@@ -11,7 +11,6 @@ export type ModuleKey =
   | "documentos"
   | "usuarios"
   | "configuracoes"
-  | "portal"
   | "propostas"
   | "relatorios";
 
@@ -50,31 +49,23 @@ export type DocumentoStatus =
   | "EXPIRADO"
   | "INVALIDO";
 
-export type ProcessoStatus =
-  | "DOCUMENTACAO_EM_ANDAMENTO"
-  | "CONTRATO_EM_ANALISE"
-  | "AGUARDANDO_CORRECOES"
-  | "PROCESSO_APROVADO"
-  | "PROCESSO_CONCLUIDO";
-
 const MODULE_ACCESS: Record<ModuleKey, Role[]> = {
-  dashboard: ["ADMIN", "GESTOR", "ANALISTA", "CLIENTE"],
+  dashboard: ["ADMIN", "GESTOR", "ANALISTA"],
   contratos: ["ADMIN", "GESTOR", "ANALISTA"],
   agenda: ["ADMIN", "GESTOR", "ANALISTA"],
   permissoes: ["ADMIN", "GESTOR"],
   empresas: ["ADMIN", "GESTOR", "ANALISTA"],
   documentos: ["ADMIN", "GESTOR", "ANALISTA"],
   usuarios: ["ADMIN", "GESTOR"],
-  configuracoes: ["ADMIN", "GESTOR", "ANALISTA", "CLIENTE"],
-  portal: ["CLIENTE"],
+  configuracoes: ["ADMIN", "GESTOR", "ANALISTA"],
   propostas: ["ADMIN", "GESTOR", "ANALISTA"],
   relatorios: ["ADMIN", "GESTOR"],
 };
 
 const BLOCK_ACCESS: Record<BlockKey, Role[]> = {
-  "config.aparencia": ["ADMIN", "GESTOR", "ANALISTA", "CLIENTE"],
-  "config.notificacoes": ["ADMIN", "GESTOR", "ANALISTA", "CLIENTE"],
-  "config.conta": ["ADMIN", "GESTOR", "ANALISTA", "CLIENTE"],
+  "config.aparencia": ["ADMIN", "GESTOR", "ANALISTA"],
+  "config.notificacoes": ["ADMIN", "GESTOR", "ANALISTA"],
+  "config.conta": ["ADMIN", "GESTOR", "ANALISTA"],
   "config.seguranca": ["ADMIN", "GESTOR", "ANALISTA"],
   "config.gestao": ["ADMIN", "GESTOR"],
   "config.administracao": ["ADMIN"],
@@ -87,7 +78,7 @@ const ACTION_ACCESS: Record<ActionKey, Role[]> = {
   "empresa.criar": ["ADMIN", "GESTOR"],
   "empresa.editar": ["ADMIN", "GESTOR"],
   "empresa.excluir": ["ADMIN"],
-  "documento.upload": ["CLIENTE", "ANALISTA", "ADMIN"],
+  "documento.upload": ["ANALISTA", "ADMIN"],
   "documento.aprovar": ["ANALISTA", "ADMIN"],
   "documento.reprovar": ["ANALISTA", "ADMIN"],
   "documento.comentar": ["ANALISTA", "ADMIN"],
@@ -99,19 +90,44 @@ const ACTION_ACCESS: Record<ActionKey, Role[]> = {
   "permissao.excluir": ["ADMIN"],
 };
 
+export type PermissaoCodigo =
+  | "CONTRATO_CRUD"
+  | "CARGO_CRUD"
+  | "DOCUMENTO_JURIDICO_CRUD"
+  | "CONTRATO_NIVEL_COMPLEXIDADE"
+  | "PLANILHA_EDICAO_RESTRITA"
+  | "REUNIAO_AGENDAMENTO"
+  | "RELATORIO_CRUD"
+  | "ARQUIVO_UPLOAD"
+  | "ARQUIVO_DOWNLOAD"
+  | "PROPOSTA_CRUD";
+
+export const RBAC_ACTION_MAP: Partial<Record<ActionKey, PermissaoCodigo>> = {
+  "documento.upload": "ARQUIVO_UPLOAD",
+  "documento.aprovar": "DOCUMENTO_JURIDICO_CRUD",
+  "documento.reprovar": "DOCUMENTO_JURIDICO_CRUD",
+  "documento.comentar": "DOCUMENTO_JURIDICO_CRUD",
+  "proposta.criar": "PROPOSTA_CRUD",
+  "proposta.editar": "PROPOSTA_CRUD",
+  "proposta.excluir": "PROPOSTA_CRUD",
+  "permissao.criar": "CARGO_CRUD",
+  "permissao.editar": "CARGO_CRUD",
+  "permissao.excluir": "CARGO_CRUD",
+};
+
 export function normalizeRole(value?: string | null): Role {
-  if (!value) return "CLIENTE";
+  if (!value) return "ANALISTA";
   const upper = value.toUpperCase();
 
   if ((ROLES as string[]).includes(upper)) {
     return upper as Role;
   }
 
-  if (upper === "MANAGER") return "GESTOR";
-  if (upper === "ANALYST") return "ANALISTA";
-  if (upper === "CLIENT" || upper === "USER") return "CLIENTE";
+  if (upper === "MANAGER" || upper === "ADMINISTRADOR") return "GESTOR";
+  if (upper === "ANALYST" || upper === "ANALISTA") return "ANALISTA";
+  if (upper === "ADMIN" || upper === "ADMINISTRATOR") return "ADMIN";
 
-  return "CLIENTE";
+  return "ANALISTA";
 }
 
 export function canAccessModule(role: Role, module: ModuleKey) {
@@ -124,4 +140,16 @@ export function canViewBlock(role: Role, block: BlockKey) {
 
 export function canPerformAction(role: Role, action: ActionKey) {
   return ACTION_ACCESS[action]?.includes(role) ?? false;
+}
+
+export function canPerformActionWithRbac(
+  role: Role,
+  action: ActionKey,
+  permissoes: string[]
+): boolean {
+  const rbacCode = RBAC_ACTION_MAP[action];
+  if (rbacCode && permissoes.length > 0) {
+    return permissoes.includes(rbacCode);
+  }
+  return canPerformAction(role, action);
 }

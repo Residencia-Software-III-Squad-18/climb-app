@@ -17,6 +17,7 @@ export interface Session {
     id?: number;
     email?: string;
     nomeCompleto?: string;
+    cargoNome?: string;
   };
 }
 

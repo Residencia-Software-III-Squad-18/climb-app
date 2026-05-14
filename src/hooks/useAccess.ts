@@ -1,9 +1,10 @@
 import { useMemo } from "react";
 
+import { useRbacStore } from "@/store/useRbacStore";
 import { useUserRoleStore } from "@/store/useUserRoleStore";
 import {
   canAccessModule,
-  canPerformAction,
+  canPerformActionWithRbac,
   canViewBlock,
   normalizeRole,
   type ActionKey,
@@ -29,5 +30,9 @@ export function useCanViewBlock(block: BlockKey) {
 
 export function useCanPerformAction(action: ActionKey) {
   const role = useCurrentRole();
-  return canPerformAction(role, action);
+  const permissoes = useRbacStore((state) => state.permissoes);
+  return useMemo(
+    () => canPerformActionWithRbac(role, action, permissoes),
+    [role, action, permissoes]
+  );
 }

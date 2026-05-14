@@ -18,6 +18,8 @@ import {
 import { syncGoogleAccessToken } from "@/lib/googleAccessToken";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useUserRoleStore } from "@/store/useUserRoleStore";
+import { useRbacStore } from "@/store/useRbacStore";
+import { fetchRbacProfile } from "@/services/useRbac";
 
 const Index = () => {
   const { isDark, setIsDark } = useTheme();
@@ -32,6 +34,7 @@ const Index = () => {
 
   const setBasicUserData = useAuthStore((state) => state.setBasicUserData);
   const setRole = useUserRoleStore((state) => state.setRole);
+  const setRbac = useRbacStore((state) => state.setRbac);
 
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
@@ -86,16 +89,15 @@ const Index = () => {
         id: response.usuario?.id,
         email: response.usuario?.email,
         nomeCompleto: response.usuario?.nomeCompleto,
+        cargoNome: response.usuario?.cargoNome,
       });
 
-      const possibleRole =
-        (response.usuario as { cargo?: string; role?: string } | undefined)
-          ?.cargo ||
-        (response.usuario as { cargo?: string; role?: string } | undefined)
-          ?.role;
+      setRole(response.usuario?.cargoNome);
 
-      if (possibleRole) {
-        setRole(possibleRole);
+      if (response.usuario?.id) {
+        fetchRbacProfile(response.usuario.id)
+          .then(({ nomeCargo, permissoesEfetivas }) => setRbac(nomeCargo, permissoesEfetivas))
+          .catch(() => {});
       }
 
       syncGoogleAccessToken(response.googleAccessToken);
@@ -147,15 +149,18 @@ const Index = () => {
         path: "/",
       });
 
-      // Salvar dados do usuário
       setBasicUserData({
         id: data.usuario.id,
         email: data.usuario.email,
         nomeCompleto: data.usuario.nomeCompleto,
+        cargoNome: data.usuario.cargoNome,
       });
 
-      // Salvar role
-      setRole(data.usuario.cargoNome || "USER");
+      setRole(data.usuario.cargoNome);
+
+      fetchRbacProfile(data.usuario.id)
+        .then(({ nomeCargo, permissoesEfetivas }) => setRbac(nomeCargo, permissoesEfetivas))
+        .catch(() => {});
 
       syncGoogleAccessToken(data.googleAccessToken);
 

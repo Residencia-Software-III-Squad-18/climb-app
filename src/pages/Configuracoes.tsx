@@ -35,7 +35,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { getNavItemsForRole } from "@/lib/navItems";
 import { useAuthStore } from "@/store/useAuthStore";
-import { useUserRoleStore } from "@/store/useUserRoleStore";
 
 const PREFS_KEY = "climb-prefs";
 
@@ -347,20 +346,13 @@ export default function Configuracoes() {
             </div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] uppercase tracking-wider text-muted-foreground/50">Perfil ativo</span>
-              <Select
-                value={currentRole}
-                onValueChange={(value) => useUserRoleStore.getState().setRole(value)}
-              >
-                <SelectTrigger className="h-9 w-[160px] rounded-md bg-card/40 text-[12px] font-medium">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ADMIN">Administrador</SelectItem>
-                  <SelectItem value="GESTOR">Gestor</SelectItem>
-                  <SelectItem value="ANALISTA">Analista</SelectItem>
-                  <SelectItem value="CLIENTE">Cliente</SelectItem>
-                </SelectContent>
-              </Select>
+              <span className="flex h-9 items-center rounded-md bg-card/40 px-4 text-[12px] font-medium">
+                {currentRole === "ADMIN"
+                  ? "Administrador"
+                  : currentRole === "GESTOR"
+                    ? "Gestor"
+                    : "Analista"}
+              </span>
             </div>
           </div>
 

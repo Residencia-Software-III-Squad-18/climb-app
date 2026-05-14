@@ -7,17 +7,14 @@ import { setUnauthorizedCallback } from "@/api";
 import { syncGoogleAccessToken } from "@/lib/googleAccessToken";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useUserRoleStore } from "@/store/useUserRoleStore";
-import { jwtDecode } from "jwt-decode";
+import { useRbacStore } from "@/store/useRbacStore";
+import { fetchRbacProfile } from "@/services/useRbac";
 import { destroyCookie, parseCookies, setCookie } from "nookies";
 import { toast } from "sonner";
 
 import { useRefreshToken } from "@/hooks/useAuth/useRefreshToken";
 import { useSignIn } from "@/hooks/useAuth/useSignIn";
 import type { SignInCredentials } from "@/hooks/useAuth/useSignIn";
-
-interface DecodedToken {
-  roles: string[];
-}
 
 // Variável global para armazenar o timer de refresh
 let refreshTokenInterval: NodeJS.Timeout | null = null;
@@ -51,6 +48,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const { mutateAsync: refreshToken } = useRefreshToken();
   const { clearSession, setBasicUserData } = useAuthStore();
   const { setRole, clearRole } = useUserRoleStore();
+  const { setRbac, clearRbac } = useRbacStore();
 
   // Função para fazer logout (extraída para reutilização)
   const handleLogout = useCallback(() => {
@@ -66,6 +64,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     syncGoogleAccessToken(null);
     clearSession();
     clearRole();
+    clearRbac();
     tokenExpiresAt = null;
     navigate("/");
   }, [clearRole, clearSession, navigate]);
@@ -175,14 +174,19 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
         tokenExpiresAt = calculateExpiresAt(expiresIn);
 
-        // Decodificar JWT para pegar roles
-        const decoded = jwtDecode<DecodedToken>(accessToken);
-        const role = decoded.roles?.[0]?.toUpperCase();
-        setRole(role);
+        // Usar cargoNome da resposta da API para definir o perfil
+        setRole(usuario?.cargoNome);
 
         // Salvar dados do usuário no store
         if (usuario) {
           setBasicUserData(usuario);
+        }
+
+        // Buscar permissões RBAC do usuário (não bloqueia o fluxo de login)
+        if (usuario?.id) {
+          fetchRbacProfile(usuario.id)
+            .then(({ nomeCargo, permissoesEfetivas }) => setRbac(nomeCargo, permissoesEfetivas))
+            .catch(() => {});
         }
 
         // Iniciar timer de refresh automático
@@ -194,7 +198,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         toast.error("Email ou senha inválidos");
       }
     },
-    [signIn, setRole, setBasicUserData, setupRefreshTimer, navigate],
+    [signIn, setRole, setRbac, setBasicUserData, setupRefreshTimer, navigate],
   );
 
   const signOut = useCallback(() => {

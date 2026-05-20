@@ -17,6 +17,7 @@ interface AgendaEvent {
   title: string;
   time: string;
   endTime: string;
+  diaInteiro?: boolean;
   empresa: string;
   local?: string;
   type: "virtual" | "presencial";
@@ -95,6 +96,9 @@ const formatEventTime = (dateString?: string) => {
     minute: "2-digit",
   });
 };
+
+const formatAgendaTimeRange = (ev: Pick<AgendaEvent, "time" | "endTime" | "diaInteiro">) =>
+  ev.diaInteiro ? ev.time : `${ev.time} – ${ev.endTime}`;
 
 const eventDateInput = (date: Date) => {
   const timezoneOffset = date.getTimezoneOffset() * 60000;
@@ -195,13 +199,16 @@ const Agenda = () => {
         empresas.find((item) => item.id === reuniao.empresaId)?.nome ||
         `Empresa #${reuniao.empresaId}`;
 
+      const diaInteiro = Boolean(reuniao.diaInteiro);
+      const timeLabel = diaInteiro ? "Dia inteiro" : formatEventTime(reuniao.dataHora);
       grouped[day] = [
         ...(grouped[day] ?? []),
         {
           id: String(reuniao.id),
           title: reuniao.titulo,
-          time: formatEventTime(reuniao.dataHora),
-          endTime: addOneHour(formatEventTime(reuniao.dataHora)),
+          time: timeLabel,
+          endTime: diaInteiro ? "—" : addOneHour(formatEventTime(reuniao.dataHora)),
+          diaInteiro,
           empresa,
           local: reuniao.local,
           type: reuniao.presencial ? "presencial" : "virtual",
@@ -401,8 +408,13 @@ const Agenda = () => {
                               <>
                                 <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] mb-1 ${isToday ? "bg-accent text-accent-foreground font-bold" : "text-foreground/50 font-medium"}`}>{day}</div>
                                 {events.map(ev => (
-                                  <motion.div key={ev.id} className={`rounded px-1.5 py-0.5 mb-0.5 text-[9px] font-medium truncate cursor-pointer ${ev.type === "virtual" ? "bg-accent/10 text-accent" : "bg-primary/10 text-primary"}`} whileHover={{ scale: 1.02 }} title={`${ev.time} ${ev.title}`}>
-                                    {ev.time} {ev.title}
+                                  <motion.div
+                                    key={ev.id}
+                                    className={`rounded px-1.5 py-0.5 mb-0.5 text-[9px] font-medium truncate cursor-pointer ${ev.type === "virtual" ? "bg-accent/10 text-accent" : "bg-primary/10 text-primary"}`}
+                                    whileHover={{ scale: 1.02 }}
+                                    title={ev.diaInteiro ? `Dia inteiro · ${ev.title}` : `${ev.time} · ${ev.title}`}
+                                  >
+                                    {ev.diaInteiro ? ev.title : `${ev.time} ${ev.title}`}
                                   </motion.div>
                                 ))}
                               </>
@@ -443,7 +455,7 @@ const Agenda = () => {
                           {dynamicMonthEvents[selectedDay].map(ev => (
                             <motion.div key={ev.id} className="rounded-lg border border-border/20 bg-background/50 p-3" initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}>
                               <p className="text-[12px] font-medium text-foreground/80 mb-1">{ev.title}</p>
-                              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50 mb-1"><Clock className="w-3 h-3" /><span>{ev.time} – {ev.endTime}</span></div>
+                              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50 mb-1"><Clock className="w-3 h-3" /><span>{formatAgendaTimeRange(ev)}</span></div>
                               <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50 mb-1"><Building2 className="w-3 h-3" /><span>{ev.empresa}</span></div>
                               {ev.local && <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50"><MapPin className="w-3 h-3" /><span>{ev.local}</span></div>}
                               <div className={`inline-flex items-center gap-1 text-[8px] font-medium px-1.5 py-0.5 rounded-full mt-2 ${ev.type === "virtual" ? "bg-accent/10 text-accent" : "bg-primary/10 text-primary"}`}>
@@ -534,7 +546,7 @@ const Agenda = () => {
                                 <p className="text-[12px] font-semibold text-foreground/80 mb-1.5">{ev.title}</p>
                                 <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50 mb-1">
                                   <Clock className="w-3 h-3" />
-                                  <span>{ev.time} – {ev.endTime}</span>
+                                  <span>{formatAgendaTimeRange(ev)}</span>
                                 </div>
                                 <div className={`inline-flex items-center gap-1 text-[9px] font-medium px-1.5 py-0.5 rounded-full ${ev.type === "virtual" ? "bg-accent/15 text-accent" : "bg-primary/15 text-primary"}`}>
                                   {ev.type === "virtual" ? <Video className="w-2.5 h-2.5" /> : <MapPin className="w-2.5 h-2.5" />}
@@ -570,7 +582,7 @@ const Agenda = () => {
                           <div className="flex-1">
                             <p className="text-[13px] font-medium text-foreground">{ev.title}</p>
                             <div className="flex items-center gap-3 text-[10px] text-muted-foreground/50 mt-0.5">
-                              <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{ev.time} – {ev.endTime}</span>
+                              <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{formatAgendaTimeRange(ev)}</span>
                               <span className="flex items-center gap-1"><Building2 className="w-3 h-3" />{ev.empresa}</span>
                               {ev.local && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{ev.local}</span>}
                             </div>

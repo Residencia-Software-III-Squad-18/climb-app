@@ -1,35 +1,45 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api";
 
+interface NotificacaoRaw {
+  idNotificacao?: number;
+  id?: number;
+  mensagem?: string;
+  dataEnvio?: string;
+  tipo?: string;
+  usuario?: { id?: number };
+}
+
 export interface Notificacao {
   id: number;
-  titulo: string;
-  mensagem: string;
-  lida: boolean;
+  mensagem?: string;
+  dataEnvio?: string;
   tipo?: string;
-  dataCriacao: string;
-  dataAtualizacao?: string;
+  usuarioId?: number;
+  titulo?: string;
+  lida?: boolean;
+  dataCriacao?: string;
+}
+
+function normalizeNotificacao(n: NotificacaoRaw): Notificacao {
+  return {
+    id: n.idNotificacao ?? n.id ?? 0,
+    mensagem: n.mensagem,
+    dataEnvio: n.dataEnvio,
+    tipo: n.tipo,
+    usuarioId: n.usuario?.id,
+  };
 }
 
 export function useNotificacoes() {
   return useQuery<Notificacao[]>({
     queryKey: ["notificacoes"],
     queryFn: async () => {
-      const response = await api.get<Notificacao[] | { content: Notificacao[] }>("/notificacoes");
+      const response = await api.get<NotificacaoRaw[] | { content: NotificacaoRaw[] }>("/notificacoes");
       const data = response.data;
-      return Array.isArray(data) ? data : (data as any)?.content ?? [];
+      const items = Array.isArray(data) ? data : (data as any)?.content ?? [];
+      return items.map(normalizeNotificacao);
     },
-  });
-}
-
-export function useMarcarNotificacaoLida() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (id: number) => {
-      const response = await api.put<Notificacao>(`/notificacoes/${id}`, { lida: true });
-      return response.data;
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notificacoes"] }),
   });
 }
 

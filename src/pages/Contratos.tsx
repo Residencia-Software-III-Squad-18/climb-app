@@ -40,9 +40,9 @@ const Contratos = () => {
     .split(" ").filter(Boolean).slice(0, 2)
     .map((s: string) => s[0].toUpperCase()).join("");
 
-  const canCreate = useCanPerformAction("proposta.criar");
-  const canEdit = useCanPerformAction("proposta.editar");
-  const canDelete = useCanPerformAction("proposta.excluir");
+  const canCreate = useCanPerformAction("contrato.criar");
+  const canEdit = useCanPerformAction("contrato.editar");
+  const canDelete = useCanPerformAction("contrato.excluir");
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState<FilterTab>("Todos");

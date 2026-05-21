@@ -45,6 +45,7 @@ import {
   useUsuarios,
   usePermissoes,
 } from "@/services";
+import { useNotificacoes } from "@/services/useNotificacoes";
 
 import { useAuthStore } from "@/store/useAuthStore";
 import { useCurrentRole } from "@/hooks/useAccess";
@@ -365,32 +366,26 @@ const Dashboard = () => {
     docs: string[];
   } | null>(null);
   const [showNotifPanel, setShowNotifPanel] = useState(false);
-  const [appNotifications, setAppNotifications] = useState<AppNotification[]>([
-    {
-      id: "n1",
-      tipo: "alerta",
-      titulo: "Documento pendente de validação",
-      descricao: "Empresa Apex Ventures aguarda revisão documental.",
-      lida: false,
-      criadoEm: new Date(Date.now() - 15 * 60000),
-    },
-    {
-      id: "n2",
-      tipo: "sucesso",
-      titulo: "Contrato ativado com sucesso",
-      descricao: "Meridian Partners — contrato CT-42 ativado.",
-      lida: false,
-      criadoEm: new Date(Date.now() - 2 * 3600000),
-    },
-    {
-      id: "n3",
-      tipo: "info",
-      titulo: "Reunião agendada para amanhã",
-      descricao: "Kickoff Q2 com Solare Investimentos às 09:00.",
-      lida: true,
-      criadoEm: new Date(Date.now() - 24 * 3600000),
-    },
-  ]);
+  const [lidasIds, setLidasIds] = useState<Set<number>>(new Set());
+
+  const { data: notificacoesApi = [] } = useNotificacoes();
+
+  const appNotifications = useMemo<AppNotification[]>(
+    () =>
+      notificacoesApi.map((n) => ({
+        id: String(n.id),
+        tipo: (n.tipo?.toLowerCase() === "alerta"
+          ? "alerta"
+          : n.tipo?.toLowerCase() === "sucesso"
+            ? "sucesso"
+            : "info") as AppNotification["tipo"],
+        titulo: n.mensagem ?? `Notificação #${n.id}`,
+        descricao: n.mensagem ?? "",
+        lida: lidasIds.has(n.id),
+        criadoEm: n.dataEnvio ? new Date(n.dataEnvio) : new Date(),
+      })),
+    [notificacoesApi, lidasIds],
+  );
 
   const {
     data: contratos = [],
@@ -604,10 +599,10 @@ const Dashboard = () => {
         isCliente,
         ultimoContato: formatDate(contrato.dataAtualizacao),
         contratoInfo: {
-          negociado: contrato.descricao,
+          negociado: contrato.descricao ?? `Status: ${contrato.status}`,
           validade: formatDate(contrato.dataFim),
           valor: formatCurrency(contrato.valor),
-          ultimoContato: formatDate(contrato.dataAtualizacao),
+          ultimoContato: formatDate(contrato.dataAtualizacao ?? contrato.dataInicio),
         },
         documentos: documentosFormatados,
         fluxo: fluxoBase,
@@ -677,8 +672,8 @@ const Dashboard = () => {
     const contractNotifications: NotificationItem[] = contratos
       .slice(0, 4)
       .map((contrato) => ({
-        text: `Contrato "${contrato.titulo}" está com status ${contrato.status}`,
-        time: getRelativeLabel(contrato.dataAtualizacao),
+        text: `Contrato #${contrato.id} está com status ${contrato.status}`,
+        time: getRelativeLabel(contrato.dataAtualizacao ?? contrato.dataInicio),
         icon: contrato.status.toLowerCase().includes("ativo")
           ? CheckCircle2
           : AlertCircle,
@@ -715,26 +710,29 @@ const Dashboard = () => {
   }, [contratos, documentos, reunioes]);
 
   const stages = useMemo<StageItem[]>(() => {
+    const label = (item: (typeof contratos)[number]) =>
+      item.titulo ?? `Contrato #${item.id}`;
+
     const propostaDocs = contratos
       .filter((item) => item.status.toLowerCase().includes("proposta"))
-      .map((item) => item.titulo);
+      .map(label);
 
     const analiseDocs = contratos
       .filter((item) => {
         const status = item.status.toLowerCase();
         return status.includes("análise") || status.includes("analise");
       })
-      .map((item) => item.titulo);
+      .map(label);
 
-    const contratoDocs = contratos.map((item) => item.titulo);
+    const contratoDocs = contratos.map(label);
 
     const ativoDocs = contratos
       .filter((item) => item.status.toLowerCase().includes("ativo"))
-      .map((item) => item.titulo);
+      .map(label);
 
     const encerradoDocs = contratos
       .filter((item) => item.status.toLowerCase().includes("encerr"))
-      .map((item) => item.titulo);
+      .map(label);
 
     return [
       {
@@ -1595,12 +1593,10 @@ const Dashboard = () => {
                         <NotificationList
                           notifications={appNotifications}
                           onMarkRead={(id) =>
-                            setAppNotifications((prev) =>
-                              prev.map((n) => (n.id === id ? { ...n, lida: true } : n)),
-                            )
+                            setLidasIds((prev) => new Set(prev).add(Number(id)))
                           }
                           onMarkAllRead={() =>
-                            setAppNotifications((prev) => prev.map((n) => ({ ...n, lida: true })))
+                            setLidasIds(new Set(notificacoesApi.map((n) => n.id)))
                           }
                         />
                       </motion.div>

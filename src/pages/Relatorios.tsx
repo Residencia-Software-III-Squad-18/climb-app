@@ -34,7 +34,9 @@ const Relatorios = () => {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return relatorios.filter((r) =>
-      !q || r.titulo?.toLowerCase().includes(q) || r.tipo?.toLowerCase().includes(q)
+      !q ||
+      r.urlPdf?.toLowerCase().includes(q) ||
+      String(r.contratoId ?? "").includes(q)
     );
   }, [relatorios, search]);
 
@@ -105,12 +107,20 @@ const Relatorios = () => {
                   filtered.map((r, i) => (
                     <motion.div key={r.id} className="px-5 py-4 flex items-center justify-between hover:bg-muted/10 transition-colors group" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }}>
                       <div>
-                        <p className="text-[13px] font-medium text-foreground group-hover:text-accent transition-colors">{r.titulo}</p>
-                        <p className="text-[10px] text-muted-foreground/40 mt-0.5">{r.tipo} · {formatDate(r.dataCriacao)}</p>
+                        <p className="text-[13px] font-medium text-foreground group-hover:text-accent transition-colors">
+                          {r.contratoId ? `Relatório — Contrato #${r.contratoId}` : `Relatório #${r.id}`}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground/40 mt-0.5">{formatDate(r.dataEnvio)}</p>
                       </div>
-                      <button className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent/5 hover:text-accent transition-colors opacity-0 group-hover:opacity-100">
+                      <a
+                        href={r.urlPdf ?? "#"}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent/5 hover:text-accent transition-colors opacity-0 group-hover:opacity-100"
+                        onClick={(e) => { if (!r.urlPdf) e.preventDefault(); }}
+                      >
                         <FileDown className="h-4 w-4" />
-                      </button>
+                      </a>
                     </motion.div>
                   ))
                 )}

@@ -1,13 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api";
 
+interface ServicoRaw {
+  idServico?: number;
+  id?: number;
+  nome: string;
+}
+
 export interface Servico {
   id: number;
   nome: string;
   descricao?: string;
   valor?: number;
-  dataCriacao: string;
-  dataAtualizacao: string;
+  dataCriacao?: string;
+  dataAtualizacao?: string;
 }
 
 interface CreateServicoDTO {
@@ -16,13 +22,21 @@ interface CreateServicoDTO {
   valor?: number;
 }
 
+function normalizeServico(s: ServicoRaw): Servico {
+  return {
+    id: s.idServico ?? s.id ?? 0,
+    nome: s.nome,
+  };
+}
+
 export function useServicos() {
   return useQuery<Servico[]>({
     queryKey: ["servicos"],
     queryFn: async () => {
-      const response = await api.get<Servico[] | { content: Servico[] }>("/servicos");
+      const response = await api.get<ServicoRaw[] | { content: ServicoRaw[] }>("/servicos");
       const data = response.data;
-      return Array.isArray(data) ? data : (data as any)?.content ?? [];
+      const items = Array.isArray(data) ? data : (data as any)?.content ?? [];
+      return items.map(normalizeServico);
     },
   });
 }
@@ -31,8 +45,8 @@ export function useCreateServico() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (data: CreateServicoDTO) => {
-      const response = await api.post<Servico>("/servicos", data);
-      return response.data;
+      const response = await api.post<ServicoRaw>("/servicos", data);
+      return normalizeServico(response.data);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["servicos"] }),
   });
@@ -42,8 +56,8 @@ export function useUpdateServico() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, data }: { id: number; data: Partial<CreateServicoDTO> }) => {
-      const response = await api.put<Servico>(`/servicos/${id}`, data);
-      return response.data;
+      const response = await api.put<ServicoRaw>(`/servicos/${id}`, data);
+      return normalizeServico(response.data);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["servicos"] }),
   });
@@ -66,7 +80,7 @@ export interface EmpresaServico {
   servicoNome?: string;
   dataInicio?: string;
   dataFim?: string;
-  dataCriacao: string;
+  dataCriacao?: string;
 }
 
 interface CreateEmpresaServicoDTO {

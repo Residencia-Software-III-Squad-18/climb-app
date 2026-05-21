@@ -36,6 +36,9 @@ export type ActionKey =
   | "proposta.criar"
   | "proposta.editar"
   | "proposta.excluir"
+  | "contrato.criar"
+  | "contrato.editar"
+  | "contrato.excluir"
   | "permissao.criar"
   | "permissao.editar"
   | "permissao.excluir";
@@ -85,6 +88,9 @@ const ACTION_ACCESS: Record<ActionKey, Role[]> = {
   "proposta.criar": ["ADMIN", "GESTOR", "ANALISTA"],
   "proposta.editar": ["ADMIN", "GESTOR", "ANALISTA"],
   "proposta.excluir": ["ADMIN", "GESTOR"],
+  "contrato.criar": ["ADMIN", "GESTOR", "ANALISTA"],
+  "contrato.editar": ["ADMIN", "GESTOR", "ANALISTA"],
+  "contrato.excluir": ["ADMIN", "GESTOR"],
   "permissao.criar": ["ADMIN"],
   "permissao.editar": ["ADMIN"],
   "permissao.excluir": ["ADMIN"],
@@ -110,6 +116,9 @@ export const RBAC_ACTION_MAP: Partial<Record<ActionKey, PermissaoCodigo>> = {
   "proposta.criar": "PROPOSTA_CRUD",
   "proposta.editar": "PROPOSTA_CRUD",
   "proposta.excluir": "PROPOSTA_CRUD",
+  "contrato.criar": "CONTRATO_CRUD",
+  "contrato.editar": "CONTRATO_CRUD",
+  "contrato.excluir": "CONTRATO_CRUD",
   "permissao.criar": "CARGO_CRUD",
   "permissao.editar": "CARGO_CRUD",
   "permissao.excluir": "CARGO_CRUD",

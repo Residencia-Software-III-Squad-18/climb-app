@@ -10,6 +10,8 @@ import Index from "./pages/Index.tsx";
 import Dashboard from "./pages/Dashboard.tsx";
 import RecuperarSenha from "./pages/RecuperarSenha.tsx";
 import SolicitarAcesso from "./pages/SolicitarAcesso.tsx";
+import PendingApproval from "./pages/PendingApproval.tsx";
+import FirstAccess from "./pages/FirstAccess.tsx";
 import Agenda from "./pages/Agenda.tsx";
 import Permissoes from "./pages/Permissoes.tsx";
 import Empresas from "./pages/Empresas.tsx";
@@ -50,8 +52,24 @@ const App = () => (
                 </PublicRoute>
               }
             />
+            <Route
+              path="/pending-approval"
+              element={
+                <PublicRoute>
+                  <PendingApproval />
+                </PublicRoute>
+              }
+            />
 
             {/* Rotas Privadas */}
+            <Route
+              path="/first-access"
+              element={
+                <PrivateRoute>
+                  <FirstAccess />
+                </PrivateRoute>
+              }
+            />
             <Route
               path="/dashboard"
               element={

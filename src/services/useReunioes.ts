@@ -1,42 +1,233 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { isAxiosError } from "axios";
 import { api } from "@/api";
+import {
+  GOOGLE_ACCESS_TOKEN_STORAGE_KEY,
+  syncGoogleAccessToken,
+} from "@/lib/googleAccessToken";
 
 export interface Reuniao {
   id: number;
+  idReuniao?: number;
   titulo: string;
-  descricao: string;
+  descricao?: string;
+  pauta?: string;
   dataHora: string;
+  data?: string;
+  hora?: string;
   local: string;
   empresaId: number;
-  dataCriacao: string;
-  dataAtualizacao: string;
+  empresa?: {
+    id?: number;
+    idEmpresa?: number;
+    nome?: string;
+    nomeFantasia?: string;
+    razaoSocial?: string;
+  };
+  presencial?: boolean;
+  status?: string;
+  googleEventId?: string;
+  /** Evento de dia inteiro (ex.: Google Calendar com start.date). */
+  diaInteiro?: boolean;
+  dataCriacao?: string;
+  dataAtualizacao?: string;
 }
 
-interface CreateReuniaoDTO {
+export interface CreateReuniaoDTO {
   titulo: string;
-  descricao: string;
-  dataHora: string;
-  local: string;
+  pauta?: string;
+  data: string;
+  hora: string;
+  presencial: boolean;
+  local?: string;
   empresaId: number;
+  status?: string;
+}
+
+type ReuniaoApi = Reuniao & {
+  idReuniao?: number;
+  /** Resposta bruta da API (Jackson pode enviar data/hora em formatos variados). */
+  data?: unknown;
+  hora?: unknown;
+  dataHora?: string;
+};
+
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+function normalizeDatePart(input: unknown): string | undefined {
+  if (input == null) return undefined;
+  if (typeof input === "string") {
+    const s = input.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    if (s.length >= 10) return s.slice(0, 10);
+    return undefined;
+  }
+  if (Array.isArray(input) && input.length >= 3) {
+    const y = Number(input[0]);
+    const m = Number(input[1]);
+    const d = Number(input[2]);
+    if (Number.isFinite(y) && Number.isFinite(m) && Number.isFinite(d)) {
+      return `${y}-${pad2(m)}-${pad2(d)}`;
+    }
+  }
+  if (typeof input === "object" && input !== null) {
+    const o = input as { year?: number; month?: number; day?: number };
+    if (
+      o.year != null &&
+      o.month != null &&
+      o.day != null &&
+      Number.isFinite(o.year) &&
+      Number.isFinite(o.month) &&
+      Number.isFinite(o.day)
+    ) {
+      return `${o.year}-${pad2(o.month)}-${pad2(o.day)}`;
+    }
+  }
+  return undefined;
+}
+
+function normalizeTimePart(input: unknown): string | undefined {
+  if (input == null) return undefined;
+  if (typeof input === "string") {
+    const s = input.trim();
+    const m = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    if (m) {
+      const h = Number(m[1]);
+      const min = Number(m[2]);
+      const sec = m[3] != null ? Number(m[3]) : 0;
+      if (Number.isFinite(h) && Number.isFinite(min) && Number.isFinite(sec)) {
+        return `${pad2(h)}:${pad2(min)}:${pad2(sec)}`;
+      }
+    }
+    return undefined;
+  }
+  if (Array.isArray(input) && input.length >= 2) {
+    const h = Number(input[0]);
+    const min = Number(input[1]);
+    const sec = input.length > 2 ? Number(input[2]) : 0;
+    if (Number.isFinite(h) && Number.isFinite(min) && Number.isFinite(sec)) {
+      return `${pad2(h)}:${pad2(min)}:${pad2(sec)}`;
+    }
+  }
+  return undefined;
+}
+
+/** Preferência: dataHora ISO da API (integration-pages). Fallback: data + hora normalizados. */
+function buildDataHora(reuniao: ReuniaoApi): string {
+  if (typeof reuniao.dataHora === "string") {
+    const t = reuniao.dataHora.trim();
+    if (t) return t;
+  }
+
+  const datePart = normalizeDatePart(reuniao.data);
+  const timePart = normalizeTimePart(reuniao.hora);
+  if (datePart && timePart) {
+    return `${datePart}T${timePart}`;
+  }
+  return "";
+}
+
+function normalizeReuniao(reuniao: ReuniaoApi): Reuniao {
+  const empresaId =
+    reuniao.empresaId ??
+    reuniao.empresa?.id ??
+    reuniao.empresa?.idEmpresa ??
+    0;
+
+  return {
+    ...reuniao,
+    id: reuniao.id ?? reuniao.idReuniao ?? 0,
+    idReuniao: reuniao.idReuniao ?? reuniao.id,
+    empresaId,
+    dataHora: buildDataHora(reuniao),
+    descricao: reuniao.descricao ?? reuniao.pauta ?? "",
+    local: reuniao.local ?? "",
+  };
+}
+
+function buildCreatePayload(data: CreateReuniaoDTO) {
+  return {
+    titulo: data.titulo,
+    pauta: data.pauta,
+    data: data.data,
+    hora: data.hora,
+    presencial: data.presencial,
+    local: data.local,
+    status: data.status ?? "AGENDADA",
+    empresa: {
+      idEmpresa: data.empresaId,
+    },
+  };
+}
+
+function buildHeaders() {
+  const googleAccessToken = getGoogleAccessToken();
+  return googleAccessToken
+    ? { "X-Google-Access-Token": googleAccessToken }
+    : undefined;
+}
+
+function getGoogleAccessToken() {
+  return localStorage.getItem(GOOGLE_ACCESS_TOKEN_STORAGE_KEY);
+}
+
+/** GET com X-Google-Access-Token quando existir — necessário para o backend mesclar eventos externos do Calendar. */
+async function fetchReuniaoList(path: string): Promise<Reuniao[]> {
+  const hadGoogleToken = !!getGoogleAccessToken();
+  try {
+    const response = await api.get<Reuniao[]>(path, {
+      headers: buildHeaders(),
+    });
+    return response.data.map(normalizeReuniao);
+  } catch (err) {
+    if (
+      hadGoogleToken &&
+      isAxiosError(err) &&
+      (err.response?.status === 401 || err.response?.status === 403)
+    ) {
+      syncGoogleAccessToken(null);
+      const response = await api.get<Reuniao[]>(path);
+      return response.data.map(normalizeReuniao);
+    }
+    throw err;
+  }
+}
+
+async function fetchReuniaoOne(id: number): Promise<Reuniao> {
+  const path = `/reunioes/${id}`;
+  const hadGoogleToken = !!getGoogleAccessToken();
+  try {
+    const response = await api.get<Reuniao>(path, {
+      headers: buildHeaders(),
+    });
+    return normalizeReuniao(response.data);
+  } catch (err) {
+    if (
+      hadGoogleToken &&
+      isAxiosError(err) &&
+      (err.response?.status === 401 || err.response?.status === 403)
+    ) {
+      syncGoogleAccessToken(null);
+      const response = await api.get<Reuniao>(path);
+      return normalizeReuniao(response.data);
+    }
+    throw err;
+  }
 }
 
 export function useReunioes() {
   return useQuery<Reuniao[]>({
     queryKey: ["reunioes"],
-    queryFn: async () => {
-      const response = await api.get<Reuniao[]>("/reunioes");
-      return response.data;
-    },
+    queryFn: () => fetchReuniaoList("/reunioes"),
   });
 }
 
 export function useReuniaoById(id: number) {
   return useQuery<Reuniao>({
     queryKey: ["reunioes", id],
-    queryFn: async () => {
-      const response = await api.get<Reuniao>(`/reunioes/${id}`);
-      return response.data;
-    },
+    queryFn: () => fetchReuniaoOne(id),
     enabled: !!id,
   });
 }
@@ -44,10 +235,7 @@ export function useReuniaoById(id: number) {
 export function useReunioesByEmpresa(empresaId: number) {
   return useQuery<Reuniao[]>({
     queryKey: ["reunioes", "empresa", empresaId],
-    queryFn: async () => {
-      const response = await api.get<Reuniao[]>(`/reunioes/empresa/${empresaId}`);
-      return response.data;
-    },
+    queryFn: () => fetchReuniaoList(`/reunioes/empresa/${empresaId}`),
     enabled: !!empresaId,
   });
 }
@@ -57,8 +245,14 @@ export function useCreateReuniao() {
 
   return useMutation({
     mutationFn: async (data: CreateReuniaoDTO) => {
-      const response = await api.post<Reuniao>("/reunioes", data);
-      return response.data;
+      const response = await api.post<ReuniaoApi>(
+        "/reunioes",
+        buildCreatePayload(data),
+        {
+          headers: buildHeaders(),
+        },
+      );
+      return normalizeReuniao(response.data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reunioes"] });
@@ -70,9 +264,15 @@ export function useUpdateReuniao() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: Partial<CreateReuniaoDTO> }) => {
-      const response = await api.put<Reuniao>(`/reunioes/${id}`, data);
-      return response.data;
+    mutationFn: async ({ id, data }: { id: number; data: CreateReuniaoDTO }) => {
+      const response = await api.put<ReuniaoApi>(
+        `/reunioes/${id}`,
+        buildCreatePayload(data),
+        {
+          headers: buildHeaders(),
+        },
+      );
+      return normalizeReuniao(response.data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reunioes"] });
@@ -85,7 +285,9 @@ export function useDeleteReuniao() {
 
   return useMutation({
     mutationFn: async (id: number) => {
-      await api.delete(`/reunioes/${id}`);
+      await api.delete(`/reunioes/${id}`, {
+        headers: buildHeaders(),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reunioes"] });

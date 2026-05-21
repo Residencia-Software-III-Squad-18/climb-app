@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 
 import { api } from "@/api";
 import { setUnauthorizedCallback } from "@/api";
+import { syncGoogleAccessToken } from "@/lib/googleAccessToken";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useUserRoleStore } from "@/store/useUserRoleStore";
 import { jwtDecode } from "jwt-decode";
@@ -62,6 +63,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     destroyCookie(undefined, "@CLIMB:T");
     destroyCookie(undefined, "@CLIMB:R");
     destroyCookie(undefined, "email");
+    syncGoogleAccessToken(null);
     clearSession();
     clearRole();
     tokenExpiresAt = null;
@@ -134,7 +136,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
           refreshToken: refreshTokenData,
           expiresIn,
           usuario,
+          googleAccessToken,
         } = data;
+
+        syncGoogleAccessToken(googleAccessToken);
 
         // Email vem em data.usuario.email
         const userEmail = usuario?.email || email;

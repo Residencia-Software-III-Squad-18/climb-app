@@ -11,6 +11,8 @@ export interface Session {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
+  /** OAuth access token for Google Calendar when the backend returns it on login. */
+  googleAccessToken?: string;
   usuario?: {
     id?: number;
     email?: string;
@@ -21,7 +23,6 @@ export interface Session {
 export const signInRequest = async (credentials: SignInCredentials) => {
   try {
     const response = await api.post("/auth/login", credentials);
-    console.log("📦 Resposta bruta:", response.data);
 
     // A API retorna: {
     //   success,

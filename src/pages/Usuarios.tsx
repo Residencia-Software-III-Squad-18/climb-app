@@ -195,6 +195,18 @@ export default function Usuarios() {
               ) : null}
             </motion.button>
 
+            <Link to="/configuracoes">
+              <motion.button
+                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground transition-all hover:bg-muted/30 hover:text-foreground ${
+                  sidebarCollapsed ? "justify-center" : ""
+                }`}
+                whileTap={{ scale: 0.98 }}
+              >
+                <Settings className="h-[18px] w-[18px]" />
+                {!sidebarCollapsed ? <span className="text-[13px] font-medium">Configurações</span> : null}
+              </motion.button>
+            </Link>
+
             <Link to="/">
               <motion.button
                 className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground/50 transition-all hover:bg-destructive/5 hover:text-destructive ${

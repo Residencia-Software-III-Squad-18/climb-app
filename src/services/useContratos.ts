@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api";
+import { toast } from "sonner";
 
 interface ContratoRaw {
   idContrato?: number;
@@ -21,20 +22,22 @@ export interface Contrato {
   dataInicio?: string;
   dataFim?: string;
   status: string;
-  titulo?: string;
-  descricao?: string;
-  valor?: number;
-  dataAtualizacao?: string;
 }
 
-interface CreateContratoDTO {
-  titulo?: string;
-  descricao?: string;
-  status: string;
+export interface CreateContratoDTO {
+  propostaId: number;
   dataInicio?: string;
   dataFim?: string;
-  valor?: number;
-  empresaId?: number;
+  status: string;
+}
+
+function buildContratoPayload(dto: CreateContratoDTO) {
+  return {
+    proposta: { idProposta: dto.propostaId },
+    dataInicio: dto.dataInicio,
+    dataFim: dto.dataFim,
+    status: dto.status,
+  };
 }
 
 function normalizeContrato(c: ContratoRaw): Contrato {
@@ -88,10 +91,16 @@ export function useCreateContrato() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (data: CreateContratoDTO) => {
-      const response = await api.post<ContratoRaw>("/contratos", data);
+      const response = await api.post<ContratoRaw>("/contratos", buildContratoPayload(data));
       return normalizeContrato(response.data);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["contratos"] }),
+    onSuccess: () => {
+      toast.success("Contrato criado com sucesso.");
+      queryClient.invalidateQueries({ queryKey: ["contratos"] });
+    },
+    onError: () => {
+      toast.error("Erro ao salvar. Tente novamente.");
+    }
   });
 }
 
@@ -99,10 +108,19 @@ export function useUpdateContrato() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, data }: { id: number; data: Partial<CreateContratoDTO> }) => {
-      const response = await api.put<ContratoRaw>(`/contratos/${id}`, data);
+      const payload = data.propostaId
+        ? buildContratoPayload(data as CreateContratoDTO)
+        : { dataInicio: data.dataInicio, dataFim: data.dataFim, status: data.status };
+      const response = await api.put<ContratoRaw>(`/contratos/${id}`, payload);
       return normalizeContrato(response.data);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["contratos"] }),
+    onSuccess: () => {
+      toast.success("Contrato atualizado com sucesso.");
+      queryClient.invalidateQueries({ queryKey: ["contratos"] });
+    },
+    onError: () => {
+      toast.error("Erro ao salvar. Tente novamente.");
+    }
   });
 }
 
@@ -112,6 +130,12 @@ export function useDeleteContrato() {
     mutationFn: async (id: number) => {
       await api.delete(`/contratos/${id}`);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["contratos"] }),
+    onSuccess: () => {
+      toast.success("Contrato excluído com sucesso.");
+      queryClient.invalidateQueries({ queryKey: ["contratos"] });
+    },
+    onError: () => {
+      toast.error("Erro ao excluir. Tente novamente.");
+    }
   });
 }

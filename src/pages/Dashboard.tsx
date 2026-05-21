@@ -16,7 +16,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Plus,
-  Bell,
   Search,
   ArrowUpRight,
   ArrowDownRight,
@@ -45,13 +44,11 @@ import {
   useUsuarios,
   usePermissoes,
 } from "@/services";
-import { useNotificacoes } from "@/services/useNotificacoes";
-
 import { useAuthStore } from "@/store/useAuthStore";
 import { useCurrentRole } from "@/hooks/useAccess";
 import { getNavItemsForRole } from "@/lib/navItems";
 import { canAccessModule } from "@/lib/access";
-import { NotificationList, type Notification as AppNotification } from "@/components/notifications/NotificationList";
+import { PageHeaderActions } from "@/components/layout/PageHeaderActions";
 
 /* ══════════════════════════════════════════════════
    TYPES
@@ -365,28 +362,6 @@ const Dashboard = () => {
     label: string;
     docs: string[];
   } | null>(null);
-  const [showNotifPanel, setShowNotifPanel] = useState(false);
-  const [lidasIds, setLidasIds] = useState<Set<number>>(new Set());
-
-  const { data: notificacoesApi = [] } = useNotificacoes();
-
-  const appNotifications = useMemo<AppNotification[]>(
-    () =>
-      notificacoesApi.map((n) => ({
-        id: String(n.id),
-        tipo: (n.tipo?.toLowerCase() === "alerta"
-          ? "alerta"
-          : n.tipo?.toLowerCase() === "sucesso"
-            ? "sucesso"
-            : "info") as AppNotification["tipo"],
-        titulo: n.mensagem ?? `Notificação #${n.id}`,
-        descricao: n.mensagem ?? "",
-        lida: lidasIds.has(n.id),
-        criadoEm: n.dataEnvio ? new Date(n.dataEnvio) : new Date(),
-      })),
-    [notificacoesApi, lidasIds],
-  );
-
   const {
     data: contratos = [],
     isLoading: loadingContratos,
@@ -558,8 +533,8 @@ const Dashboard = () => {
       const isCliente = contrato.status.toLowerCase().includes("ativo");
 
       const documentosFormatados = empresaDocs.map((doc) => ({
-        name: doc.nome,
-        status: (doc.caminho ? "validated" : "pending") as
+        name: doc.tipoDocumento,
+        status: (doc.url ? "validated" : "pending") as
           | "validated"
           | "processing"
           | "pending",
@@ -580,7 +555,7 @@ const Dashboard = () => {
         },
         {
           name: "Validação documental",
-          done: empresaDocs.some((doc) => Boolean(doc.caminho)),
+          done: empresaDocs.some((doc) => Boolean(doc.url)),
         },
         {
           name: "Processo ativo",
@@ -685,10 +660,10 @@ const Dashboard = () => {
     const docNotifications: NotificationItem[] = documentos
       .slice(0, 3)
       .map((doc) => ({
-        text: `Documento "${doc.nome}" enviado para empresa ${doc.empresaId}`,
-        time: getRelativeLabel(doc.dataUpload),
+        text: `Documento "${doc.tipoDocumento}" — ${doc.nomeEmpresa}`,
+        time: doc.validado === "APROVADO" ? "Aprovado" : doc.validado === "REPROVADO" ? "Reprovado" : "Pendente",
         icon: FileText,
-        type: doc.caminho ? "success" : "info",
+        type: doc.url ? "success" : "info",
       }));
 
     const meetingNotifications: NotificationItem[] = reunioes
@@ -1469,6 +1444,21 @@ const Dashboard = () => {
             })}
           </nav>
 
+          <div className="border-t border-border/20 px-2 py-3">
+            <motion.button
+              onClick={() => navigate("/configuracoes")}
+              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground transition-all duration-200 hover:bg-muted/30 hover:text-foreground ${
+                location.pathname === "/configuracoes" ? "bg-accent/10 text-accent" : ""
+              } ${sidebarCollapsed ? "justify-center" : ""}`}
+              whileTap={{ scale: 0.98 }}
+            >
+              <Settings className="h-[18px] w-[18px]" />
+              {!sidebarCollapsed && (
+                <span className="text-[13px] font-medium">Configurações</span>
+              )}
+            </motion.button>
+          </div>
+
           <div className="space-y-1 border-t border-border/20 px-2 py-3">
             <motion.button
               onClick={() => setIsDark(!isDark)}
@@ -1497,19 +1487,6 @@ const Dashboard = () => {
                 <span className="text-[13px] font-medium">
                   {isDark ? "Modo claro" : "Modo escuro"}
                 </span>
-              )}
-            </motion.button>
-
-            <motion.button
-              onClick={() => navigate("/configuracoes")}
-              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground transition-all duration-200 hover:bg-muted/30 hover:text-foreground ${
-                location.pathname === "/configuracoes" ? "bg-accent/10 text-accent" : ""
-              } ${sidebarCollapsed ? "justify-center" : ""}`}
-              whileTap={{ scale: 0.98 }}
-            >
-              <Settings className="h-[18px] w-[18px]" />
-              {!sidebarCollapsed && (
-                <span className="text-[13px] font-medium">Configurações</span>
               )}
             </motion.button>
 
@@ -1571,66 +1548,7 @@ const Dashboard = () => {
                 </kbd>
               </motion.div>
 
-              <div className="relative">
-                <motion.button
-                  onClick={() => setShowNotifPanel((prev) => !prev)}
-                  className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-border/25 bg-card/20 text-muted-foreground transition-all duration-200 hover:border-accent/30 hover:text-foreground"
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                >
-                  <Bell className="h-4 w-4" />
-                  {appNotifications.filter((n) => !n.lida).length > 0 && (
-                    <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[8px] font-bold text-accent-foreground">
-                      {appNotifications.filter((n) => !n.lida).length}
-                    </span>
-                  )}
-                </motion.button>
-
-                <AnimatePresence>
-                  {showNotifPanel && (
-                    <>
-                      <motion.div
-                        className="fixed inset-0 z-40"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        onClick={() => setShowNotifPanel(false)}
-                      />
-                      <motion.div
-                        className="absolute right-0 top-11 z-50"
-                        initial={{ opacity: 0, y: -8, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: -8, scale: 0.95 }}
-                        transition={{ duration: 0.15 }}
-                      >
-                        <NotificationList
-                          notifications={appNotifications}
-                          onMarkRead={(id) =>
-                            setLidasIds((prev) => new Set(prev).add(Number(id)))
-                          }
-                          onMarkAllRead={() =>
-                            setLidasIds(new Set(notificacoesApi.map((n) => n.id)))
-                          }
-                        />
-                      </motion.div>
-                    </>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              <motion.div
-                className="flex h-9 w-9 items-center justify-center rounded-lg border border-accent/20 bg-accent/15"
-                whileHover={{ scale: 1.03 }}
-              >
-                <span className="text-[11px] font-semibold text-accent">
-                  {userName
-                    .split(" ")
-                    .map((part) => part[0])
-                    .slice(0, 2)
-                    .join("")
-                    .toUpperCase()}
-                </span>
-              </motion.div>
+              <PageHeaderActions />
             </div>
           </motion.header>
 

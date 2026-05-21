@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api";
+import { toast } from "sonner";
 
 export interface Usuario {
   id: number;
@@ -87,8 +88,10 @@ export function useCreateUsuario() {
       return response.data;
     },
     onSuccess: () => {
+      toast.success("Usuário criado com sucesso.");
       queryClient.invalidateQueries({ queryKey: ["usuarios"] });
     },
+    onError: () => { toast.error("Erro ao salvar. Tente novamente."); },
   });
 }
 
@@ -101,8 +104,10 @@ export function useUpdateUsuario() {
       return response.data;
     },
     onSuccess: () => {
+      toast.success("Usuário atualizado com sucesso.");
       queryClient.invalidateQueries({ queryKey: ["usuarios"] });
     },
+    onError: () => { toast.error("Erro ao salvar. Tente novamente."); },
   });
 }
 
@@ -114,7 +119,9 @@ export function useDeleteUsuario() {
       await api.delete(`/usuarios/${id}`);
     },
     onSuccess: () => {
+      toast.success("Usuário excluído com sucesso.");
       queryClient.invalidateQueries({ queryKey: ["usuarios"] });
     },
+    onError: () => { toast.error("Erro ao excluir. Tente novamente."); },
   });
 }

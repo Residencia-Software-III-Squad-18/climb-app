@@ -1,29 +1,35 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useTheme } from "@/hooks/use-theme";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ChevronLeft, ChevronRight, ClipboardCheck, Download,
-  LogOut, Settings, Moon, Search, Sun, X,
+  ChevronLeft, ChevronRight, ClipboardCheck, Download, ExternalLink,
+  LogOut, Plus, Settings, Moon, Search, Sun, Trash2, Upload, X,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import ClimbLogo from "@/components/login/ClimbLogo";
 import { AtualizarStatusModal } from "@/components/documentos/AtualizarStatusModal";
-import { InlineFeedback } from "@/components/feedback/InlineFeedback";
 import { StatusBadge } from "@/components/status/StatusBadge";
 import { useCanPerformAction, useCurrentRole } from "@/hooks/useAccess";
 import { getNavItemsForRole } from "@/lib/navItems";
-import type { DocumentoStatus } from "@/lib/access";
 import { useAuthStore } from "@/store/useAuthStore";
-import { useDocumentos, type Documento } from "@/services/useDocumentos";
+import {
+  useDocumentos,
+  useSolicitarDocumento,
+  useEnviarArquivoDocumento,
+  useDeleteDocumento,
+  type Documento,
+  type DocumentoStatus,
+} from "@/services/useDocumentos";
+import { useEmpresas } from "@/services/useEmpresas";
+import { InlineFeedback } from "@/components/feedback/InlineFeedback";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 
 const STATUS_LABEL: Record<DocumentoStatus, string> = {
   PENDENTE: "Pendente",
   EM_ANALISE: "Em análise",
   APROVADO: "Aprovado",
   REPROVADO: "Reprovado",
-  NECESSITA_CORRECAO: "Necessita correção",
-  EXPIRADO: "Expirado",
-  INVALIDO: "Inválido",
 };
 
 const STATUS_TONE: Record<DocumentoStatus, "neutral" | "info" | "success" | "warning" | "danger" | "alerta"> = {
@@ -31,9 +37,6 @@ const STATUS_TONE: Record<DocumentoStatus, "neutral" | "info" | "success" | "war
   EM_ANALISE: "info",
   APROVADO: "success",
   REPROVADO: "danger",
-  NECESSITA_CORRECAO: "warning",
-  EXPIRADO: "alerta",
-  INVALIDO: "danger",
 };
 
 const STATUS_FILTER_OPTIONS: { value: DocumentoStatus | "TODOS"; label: string }[] = [
@@ -42,15 +45,18 @@ const STATUS_FILTER_OPTIONS: { value: DocumentoStatus | "TODOS"; label: string }
   { value: "EM_ANALISE", label: "Em análise" },
   { value: "APROVADO", label: "Aprovado" },
   { value: "REPROVADO", label: "Reprovado" },
-  { value: "NECESSITA_CORRECAO", label: "Necessita correção" },
-  { value: "EXPIRADO", label: "Expirado" },
-  { value: "INVALIDO", label: "Inválido" },
+];
+
+const TIPO_OPTIONS = [
+  "CNPJ", "Contrato Social", "Balanço Patrimonial", "DRE", "Declaração IR",
+  "Certidão Negativa", "Alvará de Funcionamento", "Outro",
 ];
 
 const Documentos = () => {
   const { isDark, setIsDark } = useTheme();
   const currentRole = useCurrentRole();
   const canAprovar = useCanPerformAction("documento.aprovar");
+  const canUpload = useCanPerformAction("documento.upload");
   const navItems = useMemo(() => getNavItemsForRole(currentRole), [currentRole]);
   const basicUserData = useAuthStore((state) => state.basicUserData);
   const userInitials = (basicUserData?.nomeCompleto || "U")
@@ -61,19 +67,63 @@ const Documentos = () => {
   const [statusFilter, setStatusFilter] = useState<DocumentoStatus | "TODOS">("TODOS");
   const [selectedDoc, setSelectedDoc] = useState<Documento | null>(null);
   const [atualizandoDoc, setAtualizandoDoc] = useState<Documento | null>(null);
+  const [solicitarOpen, setSolicitarOpen] = useState(false);
+  const [uploadDoc, setUploadDoc] = useState<Documento | null>(null);
+  const [deletandoId, setDeletandoId] = useState<number | null>(null);
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: documentos = [], isLoading, error } = useDocumentos();
+  const { data: empresas = [] } = useEmpresas();
+  const solicitarMutation = useSolicitarDocumento();
+  const enviarArquivo = useEnviarArquivoDocumento();
+  const deletar = useDeleteDocumento();
+
+  const [solicitarEmpresaId, setSolicitarEmpresaId] = useState("");
+  const [solicitarTipo, setSolicitarTipo] = useState(TIPO_OPTIONS[0]);
+  const [solicitarError, setSolicitarError] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     return documentos.filter((d) => {
       const matchSearch =
-        d.nome?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        d.tipo?.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchStatus = statusFilter === "TODOS" || (d.status ?? "PENDENTE") === statusFilter;
+        d.tipoDocumento?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        d.nomeEmpresa?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        d.nomeAnalista?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchStatus = statusFilter === "TODOS" || d.validado === statusFilter;
       return matchSearch && matchStatus;
     });
   }, [searchQuery, statusFilter, documentos]);
+
+  const handleSolicitar = async () => {
+    if (!solicitarEmpresaId) { setSolicitarError("Selecione uma empresa."); return; }
+    if (!basicUserData?.id) { setSolicitarError("Usuário não identificado."); return; }
+    setSolicitarError(null);
+    try {
+      await solicitarMutation.mutateAsync({
+        empresaId: parseInt(solicitarEmpresaId),
+        tipoDocumento: solicitarTipo,
+        analistaId: basicUserData.id,
+      });
+      setSolicitarOpen(false);
+      setSolicitarEmpresaId("");
+      setSolicitarTipo(TIPO_OPTIONS[0]);
+    } catch (err: any) {
+      setSolicitarError(err?.response?.data?.message || "Erro ao solicitar.");
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!uploadDoc || !e.target.files?.[0]) return;
+    const formData = new FormData();
+    formData.append("arquivo", e.target.files[0]);
+    try {
+      await enviarArquivo.mutateAsync({ id: uploadDoc.id, formData });
+      setUploadDoc(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    } catch {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   return (
     <div className="relative min-h-screen bg-background text-foreground transition-colors duration-500 overflow-hidden">
@@ -98,12 +148,15 @@ const Documentos = () => {
               );
             })}
           </nav>
+          <div className="border-t border-border/20 py-3 px-2">
+            <Link to="/configuracoes"><motion.button className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-all ${sidebarCollapsed ? "justify-center" : ""}`} whileTap={{ scale: 0.98 }}><Settings className="w-[18px] h-[18px]" />{!sidebarCollapsed && <span className="text-[13px] font-medium">Configurações</span>}</motion.button></Link>
+          </div>
           <div className="border-t border-border/20 py-3 px-2 space-y-1">
             <motion.button onClick={() => setIsDark(!isDark)} className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-all ${sidebarCollapsed ? "justify-center" : ""}`} whileTap={{ scale: 0.98 }}>
               <AnimatePresence mode="wait"><motion.div key={isDark ? "s" : "m"} initial={{ opacity: 0, rotate: -30 }} animate={{ opacity: 1, rotate: 0 }} exit={{ opacity: 0, rotate: 30 }}>{isDark ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}</motion.div></AnimatePresence>
               {!sidebarCollapsed && <span className="text-[13px] font-medium">{isDark ? "Modo claro" : "Modo escuro"}</span>}
             </motion.button>
-            <Link to="/configuracoes"><motion.button className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-all ${sidebarCollapsed ? "justify-center" : ""}`} whileTap={{ scale: 0.98 }}><Settings className="w-[18px] h-[18px]" />{!sidebarCollapsed && <span className="text-[13px] font-medium">Configurações</span>}</motion.button></Link><Link to="/"><motion.button className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground/50 hover:text-destructive hover:bg-destructive/5 transition-all ${sidebarCollapsed ? "justify-center" : ""}`} whileTap={{ scale: 0.98 }}><LogOut className="w-[18px] h-[18px]" />{!sidebarCollapsed && <span className="text-[13px] font-medium">Sair</span>}</motion.button></Link>
+            <Link to="/"><motion.button className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground/50 hover:text-destructive hover:bg-destructive/5 transition-all ${sidebarCollapsed ? "justify-center" : ""}`} whileTap={{ scale: 0.98 }}><LogOut className="w-[18px] h-[18px]" />{!sidebarCollapsed && <span className="text-[13px] font-medium">Sair</span>}</motion.button></Link>
           </div>
           <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className="absolute -right-3 top-20 w-6 h-6 rounded-full bg-card border border-border/40 flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-accent/40 transition-all shadow-sm">
             {sidebarCollapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
@@ -127,12 +180,23 @@ const Documentos = () => {
                 ))}
               </select>
             </div>
-            <motion.div className="w-9 h-9 rounded-lg bg-accent/15 border border-accent/20 flex items-center justify-center"><span className="text-accent font-semibold text-[11px]">{userInitials}</span></motion.div>
+            <div className="flex items-center gap-2">
+              {canUpload && (
+                <motion.button
+                  onClick={() => setSolicitarOpen(true)}
+                  className="h-9 px-4 rounded-lg bg-accent text-accent-foreground text-[12px] font-semibold flex items-center gap-2 shadow-[0_2px_10px_-2px_hsl(var(--accent)/0.3)]"
+                  whileHover={{ scale: 1.02, y: -1 }} whileTap={{ scale: 0.98 }}
+                >
+                  <Plus className="w-3.5 h-3.5" /> Solicitar
+                </motion.button>
+              )}
+              <motion.div className="w-9 h-9 rounded-lg bg-accent/15 border border-accent/20 flex items-center justify-center"><span className="text-accent font-semibold text-[11px]">{userInitials}</span></motion.div>
+            </div>
           </motion.header>
 
           <div className="px-6 pt-6 pb-2">
             <h1 className="text-[22px] font-bold text-foreground tracking-tight">Documentos</h1>
-            <p className="text-[12px] text-muted-foreground/50 mt-0.5">Acompanhe o envio e status dos documentos de cada empresa.</p>
+            <p className="text-[12px] text-muted-foreground/50 mt-0.5">Acompanhe o fluxo de documentação por empresa.</p>
           </div>
 
           <div className="px-6 pb-6">
@@ -158,15 +222,43 @@ const Documentos = () => {
                       <div className="flex items-center gap-4">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <p className="text-[12px] font-semibold text-foreground">{doc.nome}</p>
-                            <StatusBadge tone={STATUS_TONE[doc.status ?? "PENDENTE"]}>
-                              {STATUS_LABEL[doc.status ?? "PENDENTE"]}
+                            <p className="text-[12px] font-semibold text-foreground">{doc.tipoDocumento}</p>
+                            <StatusBadge tone={STATUS_TONE[doc.validado ?? "PENDENTE"]}>
+                              {STATUS_LABEL[doc.validado ?? "PENDENTE"]}
                             </StatusBadge>
                           </div>
-                          <p className="text-[11px] text-foreground/70 group-hover:text-accent transition-colors">{doc.tipo}</p>
-                          <p className="text-[10px] text-muted-foreground/40 mt-1">{new Date(doc.dataUpload).toLocaleDateString("pt-BR")}</p>
+                          <p className="text-[11px] text-foreground/70 group-hover:text-accent transition-colors">{doc.nomeEmpresa}</p>
+                          <p className="text-[10px] text-muted-foreground/40 mt-0.5">Analista: {doc.nomeAnalista}</p>
                         </div>
-                        <Download className="w-5 h-5 text-muted-foreground/50 group-hover:text-accent transition-colors" />
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {canUpload && !doc.url && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setUploadDoc(doc); fileInputRef.current?.click(); }}
+                              className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/5 hover:text-accent transition-colors"
+                              title="Enviar arquivo"
+                            >
+                              <Upload className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          {canAprovar && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setAtualizandoDoc(doc); }}
+                              className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/5 hover:text-accent transition-colors"
+                              title="Validar"
+                            >
+                              <ClipboardCheck className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          {canAprovar && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setDeletandoId(doc.id); }}
+                              className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/5 hover:text-destructive transition-colors"
+                              title="Excluir"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </motion.div>
                   ))
@@ -177,46 +269,53 @@ const Documentos = () => {
         </main>
       </div>
 
+      {/* Hidden file input for upload */}
+      <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileChange} />
+
       {/* Detail Modal */}
       <AnimatePresence>
         {selectedDoc && (
           <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <motion.div className="absolute inset-0 bg-background/80 backdrop-blur-md" onClick={() => setSelectedDoc(null)} />
-            <motion.div className="relative z-10 w-full max-w-2xl max-h-[85vh] rounded-2xl border border-border/30 bg-card/95 backdrop-blur-xl shadow-2xl overflow-hidden flex flex-col" initial={{ scale: 0.92, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.92, opacity: 0, y: 20 }}>
+            <motion.div className="relative z-10 w-full max-w-lg rounded-2xl border border-border/30 bg-card/95 backdrop-blur-xl shadow-2xl overflow-hidden flex flex-col" initial={{ scale: 0.92, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.92, opacity: 0, y: 20 }}>
               <div className="flex items-center justify-between p-5 border-b border-border/20">
                 <div className="flex items-start gap-3">
                   <div>
-                    <h2 className="text-[16px] font-semibold text-foreground">{selectedDoc.nome}</h2>
-                    <p className="text-[11px] text-muted-foreground/50">{selectedDoc.tipo}</p>
+                    <h2 className="text-[16px] font-semibold text-foreground">{selectedDoc.tipoDocumento}</h2>
+                    <p className="text-[11px] text-muted-foreground/50">{selectedDoc.nomeEmpresa}</p>
                   </div>
-                  <StatusBadge tone={STATUS_TONE[selectedDoc.status ?? "PENDENTE"]} className="mt-0.5">
-                    {STATUS_LABEL[selectedDoc.status ?? "PENDENTE"]}
+                  <StatusBadge tone={STATUS_TONE[selectedDoc.validado ?? "PENDENTE"]} className="mt-0.5">
+                    {STATUS_LABEL[selectedDoc.validado ?? "PENDENTE"]}
                   </StatusBadge>
                 </div>
                 <motion.button onClick={() => setSelectedDoc(null)} className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/20" whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}><X className="w-4 h-4" /></motion.button>
               </div>
-              <div className="flex-1 overflow-y-auto p-5 space-y-4 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-muted-foreground/20 [&::-webkit-scrollbar-thumb]:rounded-full">
-                <div className="rounded-xl border border-border/20 bg-background/50 p-5 space-y-3">
+              <div className="p-5 space-y-4">
+                <div className="rounded-xl border border-border/20 bg-background/50 p-4 space-y-3">
                   <p className="text-[10px] text-muted-foreground/40 font-medium tracking-[0.08em] uppercase">Detalhes</p>
                   <div className="space-y-2">
-                    <div><p className="text-[10px] text-muted-foreground/40">Descrição</p><p className="text-[13px] text-foreground/80">{selectedDoc.descricao || "—"}</p></div>
-                    <div><p className="text-[10px] text-muted-foreground/40">Data de Upload</p><p className="text-[13px] text-foreground/80">{new Date(selectedDoc.dataUpload).toLocaleDateString("pt-BR")}</p></div>
-                    <div><p className="text-[10px] text-muted-foreground/40">Tipo</p><p className="text-[13px] text-foreground/80">{selectedDoc.tipo}</p></div>
+                    <div><p className="text-[10px] text-muted-foreground/40">Empresa</p><p className="text-[13px] text-foreground/80">{selectedDoc.nomeEmpresa}</p></div>
+                    <div><p className="text-[10px] text-muted-foreground/40">Analista responsável</p><p className="text-[13px] text-foreground/80">{selectedDoc.nomeAnalista}</p></div>
+                    <div><p className="text-[10px] text-muted-foreground/40">Arquivo</p>
+                      {selectedDoc.url ? (
+                        <a href={selectedDoc.url} target="_blank" rel="noreferrer" className="text-[13px] text-accent flex items-center gap-1 hover:underline">
+                          <ExternalLink className="w-3 h-3" /> Ver arquivo
+                        </a>
+                      ) : (
+                        <p className="text-[13px] text-muted-foreground/40">Aguardando envio</p>
+                      )}
+                    </div>
                   </div>
                 </div>
 
-                {selectedDoc.observacao && (
-                  <InlineFeedback
-                    tone={selectedDoc.status === "APROVADO" ? "success" : selectedDoc.status === "REPROVADO" ? "error" : "info"}
-                    title="Observação"
-                    message={selectedDoc.observacao}
-                  />
-                )}
-
                 <div className="flex gap-2">
-                  <motion.button className="flex-1 h-10 rounded-lg border border-accent/20 bg-accent/10 text-accent text-[12px] font-medium flex items-center justify-center gap-2 hover:bg-accent/20 transition-colors" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                    <Download className="w-4 h-4" /> Baixar documento
-                  </motion.button>
+                  {selectedDoc.url && (
+                    <a href={selectedDoc.url} target="_blank" rel="noreferrer" className="flex-1">
+                      <motion.button className="w-full h-10 rounded-lg border border-accent/20 bg-accent/10 text-accent text-[12px] font-medium flex items-center justify-center gap-2 hover:bg-accent/20 transition-colors" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                        <Download className="w-4 h-4" /> Baixar documento
+                      </motion.button>
+                    </a>
+                  )}
 
                   {canAprovar && (
                     <motion.button
@@ -225,10 +324,82 @@ const Documentos = () => {
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                     >
-                      <ClipboardCheck className="w-4 h-4" /> Atualizar status
+                      <ClipboardCheck className="w-4 h-4" /> Validar
                     </motion.button>
                   )}
                 </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Solicitar Modal */}
+      <AnimatePresence>
+        {solicitarOpen && (
+          <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div className="absolute inset-0 bg-background/80 backdrop-blur-md" onClick={() => setSolicitarOpen(false)} />
+            <motion.div className="relative z-10 w-full max-w-md rounded-2xl border border-border/30 bg-card/95 backdrop-blur-xl shadow-2xl overflow-hidden" initial={{ scale: 0.92, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.92, opacity: 0, y: 20 }}>
+              <div className="flex items-center justify-between p-5 border-b border-border/20">
+                <h2 className="text-[15px] font-semibold text-foreground">Solicitar documento</h2>
+                <motion.button onClick={() => setSolicitarOpen(false)} className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/20" whileTap={{ scale: 0.95 }}><X className="w-4 h-4" /></motion.button>
+              </div>
+              <div className="p-5 space-y-4">
+                {solicitarError && (
+                  <InlineFeedback tone="error" title="Erro" message={solicitarError} onDismiss={() => setSolicitarError(null)} />
+                )}
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Empresa *</Label>
+                  <select
+                    value={solicitarEmpresaId}
+                    onChange={(e) => setSolicitarEmpresaId(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-border/25 bg-background/40 px-3 text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-accent/20"
+                  >
+                    <option value="">Selecione a empresa</option>
+                    {empresas.map((e) => (
+                      <option key={e.id} value={e.id}>{e.nome}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Tipo de documento *</Label>
+                  <select
+                    value={solicitarTipo}
+                    onChange={(e) => setSolicitarTipo(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-border/25 bg-background/40 px-3 text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-accent/20"
+                  >
+                    {TIPO_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="flex items-center justify-end gap-2 border-t border-border/20 bg-background/40 p-4">
+                <Button variant="outline" className="h-10 rounded-lg border-border/25 bg-card/30 text-[12px] font-medium" onClick={() => setSolicitarOpen(false)} disabled={solicitarMutation.isPending}>Cancelar</Button>
+                <Button className="h-10 rounded-lg bg-accent text-[12px] font-semibold text-accent-foreground" onClick={handleSolicitar} disabled={solicitarMutation.isPending}>
+                  {solicitarMutation.isPending ? "Enviando..." : "Solicitar"}
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Confirmation */}
+      <AnimatePresence>
+        {deletandoId !== null && (
+          <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div className="absolute inset-0 bg-background/80 backdrop-blur-md" onClick={() => setDeletandoId(null)} />
+            <motion.div className="relative z-10 w-full max-w-sm rounded-2xl border border-border/30 bg-card/95 backdrop-blur-xl shadow-2xl p-6" initial={{ scale: 0.92, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.92, opacity: 0, y: 20 }}>
+              <h3 className="text-[14px] font-semibold text-foreground mb-1">Excluir documento</h3>
+              <p className="text-[11px] text-muted-foreground/50 mb-4">Esta ação não pode ser desfeita.</p>
+              <div className="flex gap-2">
+                <button onClick={() => setDeletandoId(null)} className="flex-1 h-10 rounded-lg border border-border/25 bg-card/40 text-[12px] text-foreground/70">Cancelar</button>
+                <button
+                  onClick={async () => { await deletar.mutateAsync(deletandoId); setDeletandoId(null); }}
+                  disabled={deletar.isPending}
+                  className="flex-1 h-10 rounded-lg bg-destructive text-[12px] font-semibold text-white"
+                >
+                  {deletar.isPending ? "Excluindo..." : "Confirmar"}
+                </button>
               </div>
             </motion.div>
           </motion.div>

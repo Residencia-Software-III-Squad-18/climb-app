@@ -12,7 +12,8 @@ export type ModuleKey =
   | "usuarios"
   | "configuracoes"
   | "propostas"
-  | "relatorios";
+  | "relatorios"
+  | "planilhas";
 
 export type BlockKey =
   | "config.aparencia"
@@ -41,7 +42,10 @@ export type ActionKey =
   | "contrato.excluir"
   | "permissao.criar"
   | "permissao.editar"
-  | "permissao.excluir";
+  | "permissao.excluir"
+  | "planilha.criar"
+  | "planilha.editar"
+  | "planilha.excluir";
 
 export type DocumentoStatus =
   | "PENDENTE"
@@ -63,6 +67,7 @@ const MODULE_ACCESS: Record<ModuleKey, Role[]> = {
   configuracoes: ["ADMIN", "GESTOR", "ANALISTA"],
   propostas: ["ADMIN", "GESTOR", "ANALISTA"],
   relatorios: ["ADMIN", "GESTOR"],
+  planilhas: ["ADMIN", "GESTOR"],
 };
 
 const BLOCK_ACCESS: Record<BlockKey, Role[]> = {
@@ -94,6 +99,9 @@ const ACTION_ACCESS: Record<ActionKey, Role[]> = {
   "permissao.criar": ["ADMIN"],
   "permissao.editar": ["ADMIN"],
   "permissao.excluir": ["ADMIN"],
+  "planilha.criar": ["ADMIN", "GESTOR"],
+  "planilha.editar": ["ADMIN", "GESTOR"],
+  "planilha.excluir": ["ADMIN", "GESTOR"],
 };
 
 export type PermissaoCodigo =
@@ -109,6 +117,9 @@ export type PermissaoCodigo =
   | "PROPOSTA_CRUD";
 
 export const RBAC_ACTION_MAP: Partial<Record<ActionKey, PermissaoCodigo>> = {
+  "planilha.criar": "PLANILHA_EDICAO_RESTRITA",
+  "planilha.editar": "PLANILHA_EDICAO_RESTRITA",
+  "planilha.excluir": "PLANILHA_EDICAO_RESTRITA",
   "documento.upload": "ARQUIVO_UPLOAD",
   "documento.aprovar": "DOCUMENTO_JURIDICO_CRUD",
   "documento.reprovar": "DOCUMENTO_JURIDICO_CRUD",

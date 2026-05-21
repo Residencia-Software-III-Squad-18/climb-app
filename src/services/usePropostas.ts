@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api";
+import { toast } from "sonner";
 
 export type PropostaStatus = "PENDENTE" | "EM_ANALISE" | "APROVADA" | "RECUSADA" | "CONCLUIDA";
 
@@ -86,7 +87,13 @@ export function useCreateProposta() {
       const response = await api.post<PropostaRaw>("/propostas", data);
       return normalizeProposta(response.data);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["propostas"] }),
+    onSuccess: () => {
+      toast.success("Proposta criada com sucesso.");
+      queryClient.invalidateQueries({ queryKey: ["propostas"] });
+    },
+    onError: () => {
+      toast.error("Erro ao salvar. Tente novamente.");
+    }
   });
 }
 
@@ -97,7 +104,13 @@ export function useUpdateProposta() {
       const response = await api.put<PropostaRaw>(`/propostas/${id}`, data);
       return normalizeProposta(response.data);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["propostas"] }),
+    onSuccess: () => {
+      toast.success("Proposta atualizada com sucesso.");
+      queryClient.invalidateQueries({ queryKey: ["propostas"] });
+    },
+    onError: () => {
+      toast.error("Erro ao salvar. Tente novamente.");
+    }
   });
 }
 
@@ -107,6 +120,12 @@ export function useDeleteProposta() {
     mutationFn: async (id: number) => {
       await api.delete(`/propostas/${id}`);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["propostas"] }),
+    onSuccess: () => {
+      toast.success("Proposta excluída com sucesso.");
+      queryClient.invalidateQueries({ queryKey: ["propostas"] });
+    },
+    onError: () => {
+      toast.error("Erro ao excluir. Tente novamente.");
+    }
   });
 }

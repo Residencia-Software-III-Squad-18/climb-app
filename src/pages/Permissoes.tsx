@@ -9,7 +9,7 @@ import ClimbLogo from "@/components/login/ClimbLogo";
 import { usePermissoes, useDeletePermissao, type Permissao } from "@/services";
 import { useCanPerformAction, useCurrentRole } from "@/hooks/useAccess";
 import { getNavItemsForRole } from "@/lib/navItems";
-import { useAuthStore } from "@/store/useAuthStore";
+import { PageHeaderActions } from "@/components/layout/PageHeaderActions";
 import { PermissaoFormModal } from "@/components/permissoes/PermissaoFormModal";
 import { toastErro, toastSucesso } from "@/lib/toast";
 
@@ -17,10 +17,6 @@ const Permissoes = () => {
   const { isDark, setIsDark } = useTheme();
   const currentRole = useCurrentRole();
   const navItems = useMemo(() => getNavItemsForRole(currentRole), [currentRole]);
-  const basicUserData = useAuthStore((state) => state.basicUserData);
-  const userInitials = (basicUserData?.nomeCompleto || "U")
-    .split(" ").filter(Boolean).slice(0, 2)
-    .map((s: string) => s[0].toUpperCase()).join("");
 
   const canCreate = useCanPerformAction("permissao.criar");
   const canEdit = useCanPerformAction("permissao.editar");
@@ -76,12 +72,15 @@ const Permissoes = () => {
               );
             })}
           </nav>
+          <div className="border-t border-border/20 py-3 px-2">
+            <Link to="/configuracoes"><motion.button className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-all ${sidebarCollapsed ? "justify-center" : ""}`} whileTap={{ scale: 0.98 }}><Settings className="w-[18px] h-[18px]" />{!sidebarCollapsed && <span className="text-[13px] font-medium">Configurações</span>}</motion.button></Link>
+          </div>
           <div className="border-t border-border/20 py-3 px-2 space-y-1">
             <motion.button onClick={() => setIsDark(!isDark)} className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-all ${sidebarCollapsed ? "justify-center" : ""}`} whileTap={{ scale: 0.98 }}>
               <AnimatePresence mode="wait"><motion.div key={isDark ? "s" : "m"} initial={{ opacity: 0, rotate: -30 }} animate={{ opacity: 1, rotate: 0 }} exit={{ opacity: 0, rotate: 30 }}>{isDark ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}</motion.div></AnimatePresence>
               {!sidebarCollapsed && <span className="text-[13px] font-medium">{isDark ? "Modo claro" : "Modo escuro"}</span>}
             </motion.button>
-            <Link to="/configuracoes"><motion.button className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-all ${sidebarCollapsed ? "justify-center" : ""}`} whileTap={{ scale: 0.98 }}><Settings className="w-[18px] h-[18px]" />{!sidebarCollapsed && <span className="text-[13px] font-medium">Configurações</span>}</motion.button></Link><Link to="/"><motion.button className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground/50 hover:text-destructive hover:bg-destructive/5 transition-all ${sidebarCollapsed ? "justify-center" : ""}`} whileTap={{ scale: 0.98 }}><LogOut className="w-[18px] h-[18px]" />{!sidebarCollapsed && <span className="text-[13px] font-medium">Sair</span>}</motion.button></Link>
+            <Link to="/"><motion.button className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground/50 hover:text-destructive hover:bg-destructive/5 transition-all ${sidebarCollapsed ? "justify-center" : ""}`} whileTap={{ scale: 0.98 }}><LogOut className="w-[18px] h-[18px]" />{!sidebarCollapsed && <span className="text-[13px] font-medium">Sair</span>}</motion.button></Link>
           </div>
           <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className="absolute -right-3 top-20 w-6 h-6 rounded-full bg-card border border-border/40 flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-accent/40 transition-all shadow-sm">
             {sidebarCollapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
@@ -103,9 +102,7 @@ const Permissoes = () => {
                   <Plus className="h-3.5 w-3.5" /> Nova permissão
                 </motion.button>
               )}
-              <motion.div className="w-9 h-9 rounded-lg bg-accent/15 border border-accent/20 flex items-center justify-center" whileHover={{ scale: 1.03 }}>
-                <span className="text-accent font-semibold text-[11px]">{userInitials}</span>
-              </motion.div>
+              <PageHeaderActions />
             </div>
           </motion.header>
 

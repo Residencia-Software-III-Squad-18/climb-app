@@ -21,6 +21,7 @@ import Usuarios from "./pages/Usuarios.tsx";
 import Configuracoes from "./pages/Configuracoes.tsx";
 import Propostas from "./pages/Propostas.tsx";
 import Relatorios from "./pages/Relatorios.tsx";
+import Planilhas from "./pages/Planilhas.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const App = () => (
@@ -160,6 +161,15 @@ const App = () => (
               element={
                 <PrivateRoute>
                   <Relatorios />
+                </PrivateRoute>
+              }
+            />
+
+            <Route
+              path="/planilhas"
+              element={
+                <PrivateRoute>
+                  <Planilhas />
                 </PrivateRoute>
               }
             />

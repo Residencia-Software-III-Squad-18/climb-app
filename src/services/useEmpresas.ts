@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api";
+import { toast } from "sonner";
 
 export interface Empresa {
   id: number;
@@ -127,8 +128,10 @@ export function useCreateEmpresa() {
       return normalizeEmpresa(response.data);
     },
     onSuccess: () => {
+      toast.success("Empresa criada com sucesso.");
       queryClient.invalidateQueries({ queryKey: ["empresas"] });
     },
+    onError: () => { toast.error("Erro ao salvar. Tente novamente."); },
   });
 }
 
@@ -141,8 +144,10 @@ export function useUpdateEmpresa() {
       return normalizeEmpresa(response.data);
     },
     onSuccess: () => {
+      toast.success("Empresa atualizada com sucesso.");
       queryClient.invalidateQueries({ queryKey: ["empresas"] });
     },
+    onError: () => { toast.error("Erro ao salvar. Tente novamente."); },
   });
 }
 
@@ -154,7 +159,9 @@ export function useDeleteEmpresa() {
       await api.delete(`/empresas/${id}`);
     },
     onSuccess: () => {
+      toast.success("Empresa excluída com sucesso.");
       queryClient.invalidateQueries({ queryKey: ["empresas"] });
     },
+    onError: () => { toast.error("Erro ao excluir. Tente novamente."); },
   });
 }

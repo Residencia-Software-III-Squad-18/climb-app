@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api";
+import { toast } from "sonner";
 
 export interface Cargo {
   id: number;
@@ -32,7 +33,11 @@ export function useCreateCargo() {
       const response = await api.post<Cargo>("/cargos", data);
       return response.data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["cargos"] }),
+    onSuccess: () => {
+      toast.success("Cargo criado.");
+      queryClient.invalidateQueries({ queryKey: ["cargos"] });
+    },
+    onError: () => { toast.error("Erro ao salvar. Tente novamente."); },
   });
 }
 
@@ -43,7 +48,11 @@ export function useUpdateCargo() {
       const response = await api.put<Cargo>(`/cargos/${id}`, data);
       return response.data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["cargos"] }),
+    onSuccess: () => {
+      toast.success("Cargo atualizado.");
+      queryClient.invalidateQueries({ queryKey: ["cargos"] });
+    },
+    onError: () => { toast.error("Erro ao salvar. Tente novamente."); },
   });
 }
 
@@ -53,6 +62,10 @@ export function useDeleteCargo() {
     mutationFn: async (id: number) => {
       await api.delete(`/cargos/${id}`);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["cargos"] }),
+    onSuccess: () => {
+      toast.success("Cargo excluído.");
+      queryClient.invalidateQueries({ queryKey: ["cargos"] });
+    },
+    onError: () => { toast.error("Erro ao excluir. Tente novamente."); },
   });
 }

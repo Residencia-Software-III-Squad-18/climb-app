@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api";
+import { toast } from "sonner";
 
 interface ServicoRaw {
   idServico?: number;
@@ -10,22 +11,34 @@ interface ServicoRaw {
 export interface Servico {
   id: number;
   nome: string;
-  descricao?: string;
-  valor?: number;
-  dataCriacao?: string;
-  dataAtualizacao?: string;
 }
 
-interface CreateServicoDTO {
-  nome: string;
-  descricao?: string;
-  valor?: number;
+interface EmpresaServicoRaw {
+  id?: number;
+  empresa?: { idEmpresa?: number; id?: number };
+  servico?: { idServico?: number; id?: number; nome?: string };
+}
+
+export interface EmpresaServico {
+  id: number;
+  empresaId: number;
+  servicoId: number;
+  servicoNome: string;
 }
 
 function normalizeServico(s: ServicoRaw): Servico {
   return {
     id: s.idServico ?? s.id ?? 0,
     nome: s.nome,
+  };
+}
+
+function normalizeEmpresaServico(e: EmpresaServicoRaw): EmpresaServico {
+  return {
+    id: e.id ?? 0,
+    empresaId: e.empresa?.idEmpresa ?? e.empresa?.id ?? 0,
+    servicoId: e.servico?.idServico ?? e.servico?.id ?? 0,
+    servicoNome: e.servico?.nome ?? "",
   };
 }
 
@@ -44,22 +57,30 @@ export function useServicos() {
 export function useCreateServico() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: CreateServicoDTO) => {
+    mutationFn: async (data: { nome: string }) => {
       const response = await api.post<ServicoRaw>("/servicos", data);
       return normalizeServico(response.data);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["servicos"] }),
+    onSuccess: () => {
+      toast.success("Serviço criado.");
+      queryClient.invalidateQueries({ queryKey: ["servicos"] });
+    },
+    onError: () => { toast.error("Erro ao salvar. Tente novamente."); },
   });
 }
 
 export function useUpdateServico() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: Partial<CreateServicoDTO> }) => {
+    mutationFn: async ({ id, data }: { id: number; data: { nome: string } }) => {
       const response = await api.put<ServicoRaw>(`/servicos/${id}`, data);
       return normalizeServico(response.data);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["servicos"] }),
+    onSuccess: () => {
+      toast.success("Serviço atualizado.");
+      queryClient.invalidateQueries({ queryKey: ["servicos"] });
+    },
+    onError: () => { toast.error("Erro ao salvar. Tente novamente."); },
   });
 }
 
@@ -69,36 +90,24 @@ export function useDeleteServico() {
     mutationFn: async (id: number) => {
       await api.delete(`/servicos/${id}`);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["servicos"] }),
+    onSuccess: () => {
+      toast.success("Serviço excluído.");
+      queryClient.invalidateQueries({ queryKey: ["servicos"] });
+    },
+    onError: () => { toast.error("Erro ao excluir. Tente novamente."); },
   });
-}
-
-export interface EmpresaServico {
-  id: number;
-  empresaId: number;
-  servicoId: number;
-  servicoNome?: string;
-  dataInicio?: string;
-  dataFim?: string;
-  dataCriacao?: string;
-}
-
-interface CreateEmpresaServicoDTO {
-  empresaId: number;
-  servicoId: number;
-  dataInicio?: string;
-  dataFim?: string;
 }
 
 export function useEmpresaServicosByEmpresa(empresaId: number) {
   return useQuery<EmpresaServico[]>({
     queryKey: ["empresa-servicos", empresaId],
     queryFn: async () => {
-      const response = await api.get<EmpresaServico[] | { content: EmpresaServico[] }>("/empresa-servicos", {
-        params: { empresaId },
-      });
+      const response = await api.get<EmpresaServicoRaw[] | { content: EmpresaServicoRaw[] }>("/empresa-servicos");
       const data = response.data;
-      return Array.isArray(data) ? data : (data as any)?.content ?? [];
+      const items = Array.isArray(data) ? data : (data as any)?.content ?? [];
+      return items
+        .map(normalizeEmpresaServico)
+        .filter((es) => es.empresaId === empresaId);
     },
     enabled: !!empresaId,
   });
@@ -107,13 +116,18 @@ export function useEmpresaServicosByEmpresa(empresaId: number) {
 export function useCreateEmpresaServico() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: CreateEmpresaServicoDTO) => {
-      const response = await api.post<EmpresaServico>("/empresa-servicos", data);
-      return response.data;
+    mutationFn: async ({ empresaId, servicoId }: { empresaId: number; servicoId: number }) => {
+      const response = await api.post<EmpresaServicoRaw>("/empresa-servicos", {
+        empresa: { idEmpresa: empresaId },
+        servico: { idServico: servicoId },
+      });
+      return normalizeEmpresaServico(response.data);
     },
     onSuccess: (_, vars) => {
+      toast.success("Serviço vinculado.");
       queryClient.invalidateQueries({ queryKey: ["empresa-servicos", vars.empresaId] });
     },
+    onError: () => { toast.error("Erro ao vincular. Tente novamente."); },
   });
 }
 
@@ -125,7 +139,9 @@ export function useDeleteEmpresaServico() {
       return empresaId;
     },
     onSuccess: (empresaId) => {
+      toast.success("Serviço desvinculado.");
       queryClient.invalidateQueries({ queryKey: ["empresa-servicos", empresaId] });
     },
+    onError: () => { toast.error("Erro ao desvincular. Tente novamente."); },
   });
 }

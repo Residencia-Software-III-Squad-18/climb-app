@@ -6,9 +6,8 @@ import { InlineFeedback } from "@/components/feedback/InlineFeedback";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { toastErro, toastSucesso } from "@/lib/toast";
-import { useEmpresas } from "@/services";
 import { type Contrato, useCreateContrato, useUpdateContrato } from "@/services/useContratos";
+import { usePropostas } from "@/services/usePropostas";
 
 const STATUS_OPTIONS = [
   { value: "PENDENTE", label: "Pendente" },
@@ -26,13 +25,10 @@ export function ContratoFormModal({ contrato, onClose }: ContratoFormModalProps)
   const isEditing = !!contrato;
   const create = useCreateContrato();
   const update = useUpdateContrato();
-  const { data: empresas = [] } = useEmpresas();
+  const { data: propostas = [] } = usePropostas();
 
-  const [titulo, setTitulo] = useState(contrato?.titulo ?? "");
-  const [descricao, setDescricao] = useState(contrato?.descricao ?? "");
+  const [propostaId, setPropostaId] = useState(contrato?.propostaId?.toString() ?? "");
   const [status, setStatus] = useState(contrato?.status ?? "PENDENTE");
-  const [valor, setValor] = useState(contrato?.valor?.toString() ?? "");
-  const [empresaId, setEmpresaId] = useState(contrato?.empresaId?.toString() ?? "");
   const [dataInicio, setDataInicio] = useState(contrato?.dataInicio?.slice(0, 10) ?? "");
   const [dataFim, setDataFim] = useState(contrato?.dataFim?.slice(0, 10) ?? "");
   const [error, setError] = useState<string | null>(null);
@@ -40,16 +36,12 @@ export function ContratoFormModal({ contrato, onClose }: ContratoFormModalProps)
   const isPending = create.isPending || update.isPending;
 
   const handleSubmit = async () => {
-    if (!titulo.trim()) { setError("Título é obrigatório."); return; }
-    if (!empresaId) { setError("Selecione uma empresa."); return; }
+    if (!propostaId) { setError("Selecione uma proposta."); return; }
     setError(null);
 
     const data = {
-      titulo: titulo.trim(),
-      descricao: descricao.trim(),
+      propostaId: parseInt(propostaId),
       status,
-      valor: parseFloat(valor) || 0,
-      empresaId: parseInt(empresaId),
       dataInicio: dataInicio || new Date().toISOString().slice(0, 10),
       dataFim: dataFim || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
     };
@@ -57,16 +49,13 @@ export function ContratoFormModal({ contrato, onClose }: ContratoFormModalProps)
     try {
       if (isEditing) {
         await update.mutateAsync({ id: contrato.id, data });
-        toastSucesso("Contrato atualizado com sucesso.");
       } else {
         await create.mutateAsync(data);
-        toastSucesso("Contrato criado com sucesso.");
       }
       onClose();
     } catch (err: any) {
       const message = err?.response?.data?.message || "Não foi possível salvar o contrato.";
       setError(message);
-      toastErro(message);
     }
   };
 
@@ -105,52 +94,34 @@ export function ContratoFormModal({ contrato, onClose }: ContratoFormModalProps)
             )}
 
             <div className="space-y-1.5">
-              <Label className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Título *</Label>
-              <Input
-                className="h-10 rounded-lg border-border/25 bg-background/40 px-3 text-[12px] focus-visible:ring-accent/20"
-                placeholder="Ex: Contrato de Prestação de Serviços"
-                value={titulo}
-                onChange={(e) => setTitulo(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Empresa *</Label>
+              <Label className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                Proposta *
+              </Label>
               <select
-                value={empresaId}
-                onChange={(e) => setEmpresaId(e.target.value)}
+                value={propostaId}
+                onChange={(e) => setPropostaId(e.target.value)}
                 className="h-10 w-full rounded-lg border border-border/25 bg-background/40 px-3 text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-accent/20"
               >
-                <option value="">Selecione a empresa</option>
-                {empresas.map((e) => (
-                  <option key={e.id} value={e.id}>{e.nome}</option>
+                <option value="">Selecione a proposta</option>
+                {propostas.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    Proposta #{p.id}{p.empresaId ? ` — Empresa ${p.empresaId}` : ""} ({p.status})
+                  </option>
                 ))}
               </select>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Status</Label>
-                <select
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value)}
-                  className="h-10 w-full rounded-lg border border-border/25 bg-background/40 px-3 text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-accent/20"
-                >
-                  {STATUS_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Valor (R$)</Label>
-                <Input
-                  type="number"
-                  className="h-10 rounded-lg border-border/25 bg-background/40 px-3 text-[12px] focus-visible:ring-accent/20"
-                  placeholder="0,00"
-                  value={valor}
-                  onChange={(e) => setValor(e.target.value)}
-                />
-              </div>
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Status</Label>
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                className="h-10 w-full rounded-lg border border-border/25 bg-background/40 px-3 text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-accent/20"
+              >
+                {STATUS_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -172,17 +143,6 @@ export function ContratoFormModal({ contrato, onClose }: ContratoFormModalProps)
                   onChange={(e) => setDataFim(e.target.value)}
                 />
               </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Descrição</Label>
-              <textarea
-                value={descricao}
-                onChange={(e) => setDescricao(e.target.value)}
-                placeholder="Detalhes do contrato..."
-                rows={3}
-                className="w-full resize-none rounded-lg border border-border/25 bg-background/40 px-3 py-2 text-[12px] text-foreground placeholder:text-muted-foreground/30 focus:outline-none focus:ring-1 focus:ring-accent/20"
-              />
             </div>
           </div>
 

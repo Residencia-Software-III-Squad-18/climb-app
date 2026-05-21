@@ -8,9 +8,11 @@ import {
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import ClimbLogo from "@/components/login/ClimbLogo";
-import { useCreateReuniao, useDeleteReuniao, useEmpresas, useReunioes, useUpdateReuniao } from "@/services";
+import { useCreateReuniao, useDeleteReuniao, useEmpresas, useReunioes, useUpdateReuniao, useUsuarios } from "@/services";
 import { useCurrentRole } from "@/hooks/useAccess";
+import { PageHeaderActions } from "@/components/layout/PageHeaderActions";
 import { getNavItemsForRole } from "@/lib/navItems";
+import { useParticipantesReuniao, useAddParticipante } from "@/services/useParticipantesReuniao";
 
 interface AgendaEvent {
   id: string;
@@ -162,12 +164,23 @@ const Agenda = () => {
   });
   const [eventError, setEventError] = useState("");
   const [editingEventId, setEditingEventId] = useState<number | null>(null);
+  const [selectedParticipants, setSelectedParticipants] = useState<number[]>([]);
+  const [selectedReuniaoId, setSelectedReuniaoId] = useState<number | null>(null);
   const navigate = useNavigate();
   const { data: reunioes = [] } = useReunioes();
   const { data: empresas = [] } = useEmpresas();
+  const { data: usuarios = [] } = useUsuarios();
   const { mutateAsync: createReuniao, isPending: creatingReuniao } = useCreateReuniao();
   const { mutateAsync: updateReuniao, isPending: updatingReuniao } = useUpdateReuniao();
   const { mutateAsync: deleteReuniao, isPending: deletingReuniao } = useDeleteReuniao();
+  const addParticipante = useAddParticipante();
+  const { data: participantes = [] } = useParticipantesReuniao(selectedReuniaoId ?? undefined);
+
+  const toggleParticipant = (userId: number) => {
+    setSelectedParticipants((prev) =>
+      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
+    );
+  };
 
   const today = new Date();
   const currentMonth = today.getMonth();
@@ -259,10 +272,22 @@ const Agenda = () => {
         presencial: eventForm.presencial,
       };
 
+      let reuniaoId: number;
       if (editingEventId) {
         await updateReuniao({ id: editingEventId, data: payload });
+        reuniaoId = editingEventId;
       } else {
-        await createReuniao(payload);
+        const newReuniao = await createReuniao(payload);
+        reuniaoId = (newReuniao as { id: number }).id;
+      }
+
+      // Add selected participants
+      for (const usuarioId of selectedParticipants) {
+        try {
+          await addParticipante.mutateAsync({ reuniaoId, usuarioId });
+        } catch {
+          // best-effort; individual failures are handled by the mutation
+        }
       }
 
       setEventForm({
@@ -274,6 +299,7 @@ const Agenda = () => {
         pauta: "",
         presencial: true,
       });
+      setSelectedParticipants([]);
       setEditingEventId(null);
       setShowAddEvent(false);
     } catch {
@@ -282,7 +308,9 @@ const Agenda = () => {
   };
 
   const handleEditEvent = (event: AgendaEvent) => {
-    setEditingEventId(Number(event.id));
+    const id = Number(event.id);
+    setEditingEventId(id);
+    setSelectedReuniaoId(id);
     setEventForm({
       titulo: event.title,
       empresaId: event.empresaId ? String(event.empresaId) : "",
@@ -292,6 +320,7 @@ const Agenda = () => {
       pauta: event.pauta ?? "",
       presencial: event.presencial,
     });
+    setSelectedParticipants([]);
     setEventError("");
     setShowAddEvent(true);
   };
@@ -340,12 +369,15 @@ const Agenda = () => {
               );
             })}
           </nav>
+          <div className="border-t border-border/20 py-3 px-2">
+            <Link to="/configuracoes"><motion.button className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-all ${sidebarCollapsed ? "justify-center" : ""}`} whileTap={{ scale: 0.98 }}><Settings className="w-[18px] h-[18px]" />{!sidebarCollapsed && <span className="text-[13px] font-medium">Configurações</span>}</motion.button></Link>
+          </div>
           <div className="border-t border-border/20 py-3 px-2 space-y-1">
             <motion.button onClick={() => setIsDark(!isDark)} className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-all ${sidebarCollapsed ? "justify-center" : ""}`} whileTap={{ scale: 0.98 }}>
               <AnimatePresence mode="wait"><motion.div key={isDark ? "s" : "m"} initial={{ opacity: 0, rotate: -30 }} animate={{ opacity: 1, rotate: 0 }} exit={{ opacity: 0, rotate: 30 }} transition={{ duration: 0.2 }}>{isDark ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}</motion.div></AnimatePresence>
               {!sidebarCollapsed && <span className="text-[13px] font-medium">{isDark ? "Modo claro" : "Modo escuro"}</span>}
             </motion.button>
-            <Link to="/configuracoes"><motion.button className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-all ${sidebarCollapsed ? "justify-center" : ""}`} whileTap={{ scale: 0.98 }}><Settings className="w-[18px] h-[18px]" />{!sidebarCollapsed && <span className="text-[13px] font-medium">Configurações</span>}</motion.button></Link><Link to="/"><motion.button className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground/50 hover:text-destructive hover:bg-destructive/5 transition-all ${sidebarCollapsed ? "justify-center" : ""}`} whileTap={{ scale: 0.98 }}><LogOut className="w-[18px] h-[18px]" />{!sidebarCollapsed && <span className="text-[13px] font-medium">Sair</span>}</motion.button></Link>
+            <Link to="/"><motion.button className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground/50 hover:text-destructive hover:bg-destructive/5 transition-all ${sidebarCollapsed ? "justify-center" : ""}`} whileTap={{ scale: 0.98 }}><LogOut className="w-[18px] h-[18px]" />{!sidebarCollapsed && <span className="text-[13px] font-medium">Sair</span>}</motion.button></Link>
           </div>
           <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className="absolute -right-3 top-20 w-6 h-6 rounded-full bg-card border border-border/40 flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-accent/40 transition-all shadow-sm">
             {sidebarCollapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
@@ -372,6 +404,7 @@ const Agenda = () => {
               <motion.button onClick={() => setShowAddEvent(true)} className="h-9 px-4 rounded-lg bg-accent text-accent-foreground text-[12px] font-semibold flex items-center gap-2 shadow-[0_2px_10px_-2px_hsl(var(--accent)/0.3)]" whileHover={{ scale: 1.02, y: -1 }} whileTap={{ scale: 0.98 }}>
                 <Plus className="w-3.5 h-3.5" /> Agendar
               </motion.button>
+              <PageHeaderActions />
             </div>
           </motion.header>
 
@@ -452,35 +485,59 @@ const Agenda = () => {
                       <h4 className="text-[12px] font-semibold text-foreground mb-3">Eventos do dia</h4>
                       {selectedDay && dynamicMonthEvents[selectedDay] ? (
                         <div className="space-y-2">
-                          {dynamicMonthEvents[selectedDay].map(ev => (
-                            <motion.div key={ev.id} className="rounded-lg border border-border/20 bg-background/50 p-3" initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}>
-                              <p className="text-[12px] font-medium text-foreground/80 mb-1">{ev.title}</p>
-                              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50 mb-1"><Clock className="w-3 h-3" /><span>{formatAgendaTimeRange(ev)}</span></div>
-                              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50 mb-1"><Building2 className="w-3 h-3" /><span>{ev.empresa}</span></div>
-                              {ev.local && <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50"><MapPin className="w-3 h-3" /><span>{ev.local}</span></div>}
-                              <div className={`inline-flex items-center gap-1 text-[8px] font-medium px-1.5 py-0.5 rounded-full mt-2 ${ev.type === "virtual" ? "bg-accent/10 text-accent" : "bg-primary/10 text-primary"}`}>
-                                {ev.type === "virtual" ? <Video className="w-2.5 h-2.5" /> : <MapPin className="w-2.5 h-2.5" />}
-                                {ev.type === "virtual" ? "Virtual" : "Presencial"}
-                              </div>
-                              <div className="mt-3 flex items-center justify-end gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => handleEditEvent(ev)}
-                                  className="h-7 rounded-md border border-border/25 px-2.5 text-[10px] font-medium text-muted-foreground transition-colors hover:border-accent/30 hover:text-accent"
-                                >
-                                  Editar
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={deletingReuniao}
-                                  onClick={() => handleDeleteEvent(ev)}
-                                  className="h-7 rounded-md border border-destructive/20 px-2.5 text-[10px] font-medium text-destructive transition-colors hover:bg-destructive/5 disabled:opacity-50"
-                                >
-                                  Excluir
-                                </button>
-                              </div>
-                            </motion.div>
-                          ))}
+                          {dynamicMonthEvents[selectedDay].map(ev => {
+                            const evId = Number(ev.id);
+                            const evParticipantes = selectedReuniaoId === evId ? participantes : [];
+                            return (
+                              <motion.div key={ev.id} className="rounded-lg border border-border/20 bg-background/50 p-3" initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}>
+                                <p className="text-[12px] font-medium text-foreground/80 mb-1">{ev.title}</p>
+                                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50 mb-1"><Clock className="w-3 h-3" /><span>{formatAgendaTimeRange(ev)}</span></div>
+                                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50 mb-1"><Building2 className="w-3 h-3" /><span>{ev.empresa}</span></div>
+                                {ev.local && <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50"><MapPin className="w-3 h-3" /><span>{ev.local}</span></div>}
+                                <div className={`inline-flex items-center gap-1 text-[8px] font-medium px-1.5 py-0.5 rounded-full mt-2 ${ev.type === "virtual" ? "bg-accent/10 text-accent" : "bg-primary/10 text-primary"}`}>
+                                  {ev.type === "virtual" ? <Video className="w-2.5 h-2.5" /> : <MapPin className="w-2.5 h-2.5" />}
+                                  {ev.type === "virtual" ? "Virtual" : "Presencial"}
+                                </div>
+                                {evParticipantes.length > 0 && (
+                                  <div className="mt-2">
+                                    <p className="text-[11px] text-muted-foreground/50 mb-1.5">Participantes</p>
+                                    <div className="space-y-1">
+                                      {evParticipantes.map((p) => (
+                                        <div key={p.id} className="flex items-center gap-2">
+                                          <div className="w-5 h-5 rounded-full bg-accent/15 flex items-center justify-center">
+                                            <span className="text-[9px] text-accent font-medium">
+                                              {(p.usuario?.nomeCompleto || "?").charAt(0).toUpperCase()}
+                                            </span>
+                                          </div>
+                                          <span className="text-[12px]">{p.usuario?.nomeCompleto || "—"}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                                <div className="mt-3 flex items-center justify-end gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedReuniaoId(evId);
+                                      handleEditEvent(ev);
+                                    }}
+                                    className="h-7 rounded-md border border-border/25 px-2.5 text-[10px] font-medium text-muted-foreground transition-colors hover:border-accent/30 hover:text-accent"
+                                  >
+                                    Editar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={deletingReuniao}
+                                    onClick={() => handleDeleteEvent(ev)}
+                                    className="h-7 rounded-md border border-destructive/20 px-2.5 text-[10px] font-medium text-destructive transition-colors hover:bg-destructive/5 disabled:opacity-50"
+                                  >
+                                    Excluir
+                                  </button>
+                                </div>
+                              </motion.div>
+                            );
+                          })}
                         </div>
                       ) : <p className="text-[11px] text-muted-foreground/30 text-center py-4">Clique em um dia</p>}
                     </div>
@@ -690,6 +747,26 @@ const Agenda = () => {
                 <div className="flex items-center gap-3">
                   <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="tipo-modal" checked={!eventForm.presencial} onChange={() => setEventForm((prev) => ({ ...prev, presencial: false, local: "" }))} className="accent-[hsl(var(--accent))]" /><span className="text-[12px] text-foreground/70">Virtual</span></label>
                   <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="tipo-modal" checked={eventForm.presencial} onChange={() => setEventForm((prev) => ({ ...prev, presencial: true }))} className="accent-[hsl(var(--accent))]" /><span className="text-[12px] text-foreground/70">Presencial</span></label>
+                </div>
+                <div>
+                  <label className="text-[11px] font-medium text-muted-foreground">Participantes</label>
+                  <div className="mt-1.5 max-h-[120px] overflow-y-auto space-y-1 rounded-lg border border-border/25 bg-card/20 p-2">
+                    {usuarios.map((u) => (
+                      <label key={u.id} className="flex items-center gap-2 cursor-pointer hover:bg-muted/20 px-2 py-1 rounded">
+                        <input
+                          type="checkbox"
+                          checked={selectedParticipants.includes(u.id)}
+                          onChange={() => toggleParticipant(u.id)}
+                          className="rounded border-border"
+                        />
+                        <span className="text-[12px]">{u.nomeCompleto}</span>
+                        <span className="text-[10px] text-muted-foreground/40">{u.cargoNome}</span>
+                      </label>
+                    ))}
+                    {usuarios.length === 0 && (
+                      <p className="text-[11px] text-muted-foreground/30 px-2 py-1">Nenhum usuário disponível</p>
+                    )}
+                  </div>
                 </div>
                 {eventError && <p className="text-[11px] text-destructive">{eventError}</p>}
                 <motion.button onClick={handleCreateEvent} disabled={creatingReuniao} className="w-full h-10 rounded-lg bg-accent text-accent-foreground text-[13px] font-semibold shadow-[0_2px_10px_-2px_hsl(var(--accent)/0.3)]" whileHover={{ scale: 1.01, y: -1 }} whileTap={{ scale: 0.98 }}>{creatingReuniao ? "Salvando..." : "Confirmar Agendamento"}</motion.button>

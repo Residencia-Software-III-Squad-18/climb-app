@@ -10,3 +10,4 @@ export * from "./useCargos";
 export * from "./useServicos";
 export * from "./useNotificacoes";
 export * from "./useRelatorios";
+export * from "./usePlanilhas";

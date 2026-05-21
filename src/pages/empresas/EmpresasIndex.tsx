@@ -28,10 +28,13 @@ import { StatusBadge } from "@/components/status/StatusBadge";
 import { EditarEmpresaModal } from "@/components/empresas/EditarEmpresaModal";
 import ClimbLogo from "@/components/login/ClimbLogo";
 import { useCanPerformAction, useCurrentRole } from "@/hooks/useAccess";
+import { PageHeaderActions } from "@/components/layout/PageHeaderActions";
 import { useTheme } from "@/hooks/use-theme";
 import { getNavItemsForRole } from "@/lib/navItems";
 import { Empresa, useEmpresas, useDeleteEmpresa } from "@/services";
 import { toastErro, toastSucesso } from "@/lib/toast";
+import { getCarteira } from "@/services/useCarteira";
+import { useAuthStore } from "@/store/useAuthStore";
 
 type ViewMode = "lista" | "mapa";
 
@@ -51,6 +54,7 @@ function getEmpresaStatus(e: Empresa): "ativa" | "pendente" {
 
 const EmpresasIndex = () => {
   const currentRole = useCurrentRole();
+  const basicUserData = useAuthStore((state) => state.basicUserData);
   const navItems = useMemo(() => getNavItemsForRole(currentRole), [currentRole]);
   const canCreateEmpresa = useCanPerformAction("empresa.criar");
   const canDeleteEmpresa = useCanPerformAction("empresa.excluir");
@@ -60,6 +64,7 @@ const EmpresasIndex = () => {
   const [editandoEmpresa, setEditandoEmpresa] = useState<Empresa | null>(null);
   const [deletandoId, setDeletandoId] = useState<number | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<"minhas" | "todas">("minhas");
   const navigate = useNavigate();
 
   const { data: empresas = [], isLoading, error } = useEmpresas();
@@ -105,6 +110,17 @@ const EmpresasIndex = () => {
       })
       .sort((a, b) => a.nome.localeCompare(b.nome));
   }, [empresas, minContracts, onlyWithCoords, search, state]);
+
+  const carteira = currentRole === "ANALISTA" ? getCarteira(basicUserData?.id ?? 0) : [];
+  const isReadOnly = currentRole === "ANALISTA";
+  const displayList = useMemo(() => {
+    if (currentRole === "ANALISTA") {
+      return activeTab === "minhas"
+        ? filtered.filter((e) => carteira.includes(e.id))
+        : filtered;
+    }
+    return filtered;
+  }, [currentRole, activeTab, filtered]); // carteira is stable per render
 
   const withCoords = useMemo(() => filtered.filter(hasCoords), [filtered]);
   const statusSummary = useMemo(() => {
@@ -183,6 +199,20 @@ const EmpresasIndex = () => {
               </motion.button>
             ))}
           </nav>
+
+          <div className="border-t border-border/20 py-3 px-2">
+            <Link to="/configuracoes">
+              <motion.button
+                className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-all ${
+                  sidebarCollapsed ? "justify-center" : ""
+                }`}
+                whileTap={{ scale: 0.98 }}
+              >
+                <Settings className="w-[18px] h-[18px]" />
+                {!sidebarCollapsed && <span className="text-[13px] font-medium">Configurações</span>}
+              </motion.button>
+            </Link>
+          </div>
 
           <div className="border-t border-border/20 py-3 px-2 space-y-1">
             <motion.button
@@ -287,6 +317,7 @@ const EmpresasIndex = () => {
                   </motion.button>
                 </Link>
               ) : null}
+              <PageHeaderActions />
             </div>
           </motion.header>
 
@@ -320,6 +351,31 @@ const EmpresasIndex = () => {
             <SummaryCard label="Pendentes" tone="warning" value={statusSummary.pendentes} />
           </div>
 
+          {currentRole === "ANALISTA" && (
+            <div className="px-6 pb-3">
+              <div className="flex gap-1 p-1 bg-muted/20 rounded-lg w-fit border border-border/20">
+                {(["minhas", "todas"] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`px-4 py-1.5 rounded-md text-[12px] font-medium transition-all ${
+                      activeTab === tab
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {tab === "minhas" ? `Minhas Empresas (${carteira.length})` : "Todas as Empresas"}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] text-muted-foreground/40 mt-1.5">
+                {activeTab === "minhas"
+                  ? "Empresas alocadas à sua carteira"
+                  : "Visualização geral — somente leitura"}
+              </p>
+            </div>
+          )}
+
           <div className="px-6 pb-6">
             <motion.div
               className={`rounded-xl border border-border/25 bg-card/40 backdrop-blur-sm overflow-hidden ${
@@ -334,10 +390,10 @@ const EmpresasIndex = () => {
                     <div className="py-12 text-center text-[12px] text-muted-foreground/50">Carregando empresas...</div>
                   ) : error ? (
                     <div className="py-12 text-center text-[12px] text-destructive">Erro ao carregar empresas</div>
-                  ) : filtered.length === 0 ? (
+                  ) : displayList.length === 0 ? (
                     <div className="py-12 text-center text-[12px] text-muted-foreground/30">Nenhuma empresa encontrada</div>
                   ) : (
-                    filtered.map((emp, i) => (
+                    displayList.map((emp, i) => (
                       <motion.div
                         key={emp.id}
                         className="px-5 py-4 flex items-center justify-between hover:bg-muted/10 transition-colors cursor-pointer group"
@@ -542,7 +598,7 @@ const EmpresasIndex = () => {
                   >
                     Editar
                   </motion.button>
-                  {canDeleteEmpresa && (
+                  {canDeleteEmpresa && !isReadOnly && (
                     <motion.button
                       onClick={() => { setDeletandoId(selectedEmpresa.id); setSelectedEmpresa(null); }}
                       className="h-10 px-3 rounded-lg border border-destructive/20 bg-destructive/5 text-destructive hover:bg-destructive/10 transition-all"

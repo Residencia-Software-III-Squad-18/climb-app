@@ -8,6 +8,7 @@ import {
   Home,
   Settings,
   Shield,
+  TableProperties,
   Users as UsersIcon,
   type LucideIcon,
 } from "lucide-react";
@@ -32,6 +33,7 @@ export const NAV_ITEMS: NavItem[] = [
   { icon: UsersIcon, label: "Usuários", path: "/usuarios", module: "usuarios" },
   { icon: ClipboardList, label: "Propostas", path: "/propostas", module: "propostas" },
   { icon: BarChart3, label: "Relatórios", path: "/relatorios", module: "relatorios" },
+  { icon: TableProperties, label: "Planilhas", path: "/planilhas", module: "planilhas" },
 ];
 
 export function getNavItemsForRole(role: Role) {

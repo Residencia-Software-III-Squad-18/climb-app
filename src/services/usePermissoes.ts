@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api";
+import { toast } from "sonner";
 
 interface PermissaoRaw {
   idPermissao?: number;
@@ -61,7 +62,13 @@ export function useCreatePermissao() {
       const response = await api.post<PermissaoRaw>("/permissoes", data);
       return normalizePermissao(response.data);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["permissoes"] }),
+    onSuccess: () => {
+      toast.success("Permissão criada com sucesso.");
+      queryClient.invalidateQueries({ queryKey: ["permissoes"] });
+    },
+    onError: () => {
+      toast.error("Erro ao salvar. Tente novamente.");
+    }
   });
 }
 
@@ -72,7 +79,13 @@ export function useUpdatePermissao() {
       const response = await api.put<PermissaoRaw>(`/permissoes/${id}`, data);
       return normalizePermissao(response.data);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["permissoes"] }),
+    onSuccess: () => {
+      toast.success("Permissão atualizada com sucesso.");
+      queryClient.invalidateQueries({ queryKey: ["permissoes"] });
+    },
+    onError: () => {
+      toast.error("Erro ao salvar. Tente novamente.");
+    }
   });
 }
 
@@ -82,7 +95,13 @@ export function useDeletePermissao() {
     mutationFn: async (id: number) => {
       await api.delete(`/permissoes/${id}`);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["permissoes"] }),
+    onSuccess: () => {
+      toast.success("Permissão excluída com sucesso.");
+      queryClient.invalidateQueries({ queryKey: ["permissoes"] });
+    },
+    onError: () => {
+      toast.error("Erro ao excluir. Tente novamente.");
+    }
   });
 }
 

@@ -15,6 +15,7 @@ import {
   MapPin,
   Moon,
   Phone,
+  Plus,
   Settings,
   Shield,
   Sun,
@@ -23,9 +24,11 @@ import {
 
 import ClimbLogo from "@/components/login/ClimbLogo";
 import { useCanPerformAction, useCurrentRole } from "@/hooks/useAccess";
+import { PageHeaderActions } from "@/components/layout/PageHeaderActions";
 import { useTheme } from "@/hooks/use-theme";
 import { getNavItemsForRole } from "@/lib/navItems";
 import { useContratos, useEmpresaById } from "@/services";
+import { useServicos, useEmpresaServicosByEmpresa, useCreateEmpresaServico, useDeleteEmpresaServico } from "@/services/useServicos";
 
 function brl(n: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n);
@@ -44,14 +47,23 @@ const EmpresaDetalhe = () => {
 
   const { data: empresa, isLoading: empresaLoading, error: empresaError } = useEmpresaById(empresaId);
   const { data: contratos = [], isLoading: contratosLoading } = useContratos();
+  const { data: empresaServicos = [] } = useEmpresaServicosByEmpresa(empresaId);
+  const { data: todosServicos = [] } = useServicos();
+  const vincularServico = useCreateEmpresaServico();
+  const desvincularServico = useDeleteEmpresaServico();
+  const canManageServicos = useCanPerformAction("empresa.editar");
+  const [selectedServicoId, setSelectedServicoId] = useState("");
 
   const contratosEmpresa = useMemo(() => {
     return contratos
       .filter((c) => c.empresaId === empresaId)
-      .sort((a, b) => new Date(b.dataCriacao).getTime() - new Date(a.dataCriacao).getTime());
+      .sort((a, b) => b.id - a.id);
   }, [contratos, empresaId]);
 
-  const receitaTotal = useMemo(() => contratosEmpresa.reduce((acc, c) => acc + (Number(c.valor) || 0), 0), [contratosEmpresa]);
+  const servicosVinculadosIds = useMemo(() => new Set(empresaServicos.map((es) => es.servicoId)), [empresaServicos]);
+  const servicosDisponiveis = useMemo(() => todosServicos.filter((s) => !servicosVinculadosIds.has(s.id)), [todosServicos, servicosVinculadosIds]);
+
+  const receitaTotal = 0;
 
   return (
     <div className="relative min-h-screen bg-background text-foreground transition-colors duration-500 overflow-hidden">
@@ -176,21 +188,20 @@ const EmpresaDetalhe = () => {
               </div>
             </div>
 
-            {empresa?.id && canEditEmpresa ? (
-              <Link to={`/empresas/${empresa.id}/editar`}>
-                <motion.button
-                  className="h-9 px-4 rounded-lg bg-accent text-accent-foreground text-[12px] font-semibold shadow-[0_2px_10px_-2px_hsl(var(--accent)/0.3)]"
-                  whileHover={{ scale: 1.02, y: -1 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  Editar empresa
-                </motion.button>
-              </Link>
-            ) : (
-              <div className="w-9 h-9 rounded-lg bg-accent/15 border border-accent/20 flex items-center justify-center">
-                <span className="text-accent font-semibold text-[11px]">RR</span>
-              </div>
-            )}
+            <div className="flex items-center gap-2">
+              {empresa?.id && canEditEmpresa && (
+                <Link to={`/empresas/${empresa.id}/editar`}>
+                  <motion.button
+                    className="h-9 px-4 rounded-lg bg-accent text-accent-foreground text-[12px] font-semibold shadow-[0_2px_10px_-2px_hsl(var(--accent)/0.3)]"
+                    whileHover={{ scale: 1.02, y: -1 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    Editar empresa
+                  </motion.button>
+                </Link>
+              )}
+              <PageHeaderActions />
+            </div>
           </motion.header>
 
           <div className="px-6 pt-6 pb-6 space-y-5">
@@ -272,28 +283,74 @@ const EmpresaDetalhe = () => {
                     </p>
                     <div className="mt-4 grid grid-cols-2 gap-3">
                       <div className="rounded-lg border border-border/20 bg-background/40 p-4">
-                        <p className="text-[10px] text-muted-foreground/40 uppercase tracking-wider">Contratado</p>
-                        <p className="text-[14px] font-semibold text-accent mt-1">{brl(receitaTotal)}</p>
-                        <p className="text-[11px] text-muted-foreground/50 mt-1">{contratosEmpresa.length} contratos</p>
+                        <p className="text-[10px] text-muted-foreground/40 uppercase tracking-wider">Contratos</p>
+                        <p className="text-[14px] font-semibold text-accent mt-1">{contratosEmpresa.length}</p>
+                        <p className="text-[11px] text-muted-foreground/50 mt-1">vínculos ativos</p>
                       </div>
                       <div className="rounded-lg border border-border/20 bg-background/40 p-4">
-                        <p className="text-[10px] text-muted-foreground/40 uppercase tracking-wider">Proposto</p>
-                        <p className="text-[14px] font-semibold text-foreground/80 mt-1">{brl(0)}</p>
-                        <p className="text-[11px] text-muted-foreground/50 mt-1">em breve</p>
-                      </div>
-                      <div className="col-span-2 rounded-lg border border-border/20 bg-background/40 p-4">
-                        <p className="text-[10px] text-muted-foreground/40 uppercase tracking-wider">Lucro</p>
-                        <p className="text-[14px] font-semibold text-foreground/85 mt-1">
-                          {brl(receitaTotal)}
-                        </p>
-                        <p className="text-[11px] text-muted-foreground/50 mt-1">
-                          Placeholder: calculando a partir do total de contratos (margem configurável na próxima etapa).
-                        </p>
+                        <p className="text-[10px] text-muted-foreground/40 uppercase tracking-wider">Serviços</p>
+                        <p className="text-[14px] font-semibold text-foreground/80 mt-1">{empresaServicos.length}</p>
+                        <p className="text-[11px] text-muted-foreground/50 mt-1">contratados</p>
                       </div>
                     </div>
                   </div>
                 </div>
 
+                {/* Serviços Contratados */}
+                <div className="rounded-xl border border-border/20 bg-card/40 overflow-hidden">
+                  <div className="p-5 border-b border-border/20">
+                    <p className="text-[12px] font-semibold text-foreground">Serviços Contratados</p>
+                    <p className="text-[11px] text-muted-foreground/50 mt-0.5">{empresaServicos.length} serviço(s) vinculado(s)</p>
+                  </div>
+                  <div className="p-5 space-y-3">
+                    <div className="flex flex-wrap gap-2">
+                      {empresaServicos.map((es) => (
+                        <div key={es.id} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/20 bg-accent/5 text-[12px] text-foreground/80">
+                          <span>{es.servicoNome}</span>
+                          {canManageServicos && (
+                            <button
+                              onClick={() => desvincularServico.mutate({ id: es.id, empresaId })}
+                              className="text-muted-foreground hover:text-destructive transition-colors ml-1"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      {empresaServicos.length === 0 && (
+                        <p className="text-[12px] text-muted-foreground/40">Nenhum serviço vinculado.</p>
+                      )}
+                    </div>
+                    {canManageServicos && servicosDisponiveis.length > 0 && (
+                      <div className="flex items-center gap-2 pt-1">
+                        <select
+                          value={selectedServicoId}
+                          onChange={(e) => setSelectedServicoId(e.target.value)}
+                          className="flex-1 h-9 rounded-lg border border-border/25 bg-background/40 px-3 text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-accent/20"
+                        >
+                          <option value="">Adicionar serviço...</option>
+                          {servicosDisponiveis.map((s) => (
+                            <option key={s.id} value={s.id}>{s.nome}</option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={() => {
+                            if (selectedServicoId) {
+                              vincularServico.mutate({ empresaId, servicoId: parseInt(selectedServicoId) });
+                              setSelectedServicoId("");
+                            }
+                          }}
+                          disabled={!selectedServicoId || vincularServico.isPending}
+                          className="h-9 w-9 flex items-center justify-center rounded-lg bg-accent/10 text-accent hover:bg-accent/20 transition-colors disabled:opacity-40"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Histórico de Contratos */}
                 <div className="rounded-xl border border-border/20 bg-card/40 overflow-hidden">
                   <div className="flex items-center justify-between p-5 border-b border-border/20">
                     <div>
@@ -318,10 +375,11 @@ const EmpresaDetalhe = () => {
                       <div key={c.id} className="px-5 py-4 flex items-center justify-between">
                         <div className="min-w-0">
                           <p className="text-[12px] font-semibold text-foreground/85">CT-{c.id}</p>
-                          <p className="text-[11px] text-muted-foreground/60 truncate">{c.titulo}</p>
+                          <p className="text-[11px] text-muted-foreground/60 truncate">
+                            {c.propostaId ? `Proposta #${c.propostaId}` : "—"}
+                          </p>
                         </div>
                         <div className="text-right">
-                          <p className="text-[12px] font-medium text-foreground/80">{brl(Number(c.valor) || 0)}</p>
                           <p className="text-[11px] text-muted-foreground/50">{c.status}</p>
                         </div>
                       </div>
@@ -369,10 +427,11 @@ const EmpresaDetalhe = () => {
                   <div key={c.id} className="px-5 py-4 flex items-center justify-between">
                     <div className="min-w-0">
                       <p className="text-[12px] font-semibold text-foreground/85">CT-{c.id}</p>
-                      <p className="text-[11px] text-muted-foreground/60 truncate">{c.titulo}</p>
+                      <p className="text-[11px] text-muted-foreground/60 truncate">
+                        {c.propostaId ? `Proposta #${c.propostaId}` : "—"}
+                      </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-[12px] font-medium text-foreground/80">{brl(Number(c.valor) || 0)}</p>
                       <p className="text-[11px] text-muted-foreground/50">{c.status}</p>
                     </div>
                   </div>

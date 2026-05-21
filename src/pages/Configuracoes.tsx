@@ -13,11 +13,14 @@ import {
   LogOut,
   Moon,
   Palette,
+  Pencil,
+  Plus,
   Save,
   Settings,
   Shield,
   ShieldCheck,
   Sun,
+  Trash2,
   UserCog,
   Users as UsersIcon,
   X,
@@ -27,6 +30,7 @@ import { toast } from "sonner";
 
 import ClimbLogo from "@/components/login/ClimbLogo";
 import { useCurrentRole, useCanViewBlock } from "@/hooks/useAccess";
+import { PageHeaderActions } from "@/components/layout/PageHeaderActions";
 import { useTheme } from "@/hooks/use-theme";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +39,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { getNavItemsForRole } from "@/lib/navItems";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useServicos, useCreateServico, useUpdateServico, useDeleteServico } from "@/services/useServicos";
+import { useCargos, useCreateCargo, useUpdateCargo, useDeleteCargo } from "@/services/useCargos";
 
 const PREFS_KEY = "climb-prefs";
 
@@ -148,6 +154,22 @@ export default function Configuracoes() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
+  const { data: servicos = [] } = useServicos();
+  const criarServico = useCreateServico();
+  const atualizarServico = useUpdateServico();
+  const deletarServico = useDeleteServico();
+  const [novoServico, setNovoServico] = useState("");
+  const [editingServicoId, setEditingServicoId] = useState<number | null>(null);
+  const [editingServicoNome, setEditingServicoNome] = useState("");
+
+  const { data: cargos = [] } = useCargos();
+  const criarCargo = useCreateCargo();
+  const atualizarCargo = useUpdateCargo();
+  const deletarCargo = useDeleteCargo();
+  const [novoCargo, setNovoCargo] = useState("");
+  const [editingCargoId, setEditingCargoId] = useState<number | null>(null);
+  const [editingCargoNome, setEditingCargoNome] = useState("");
 
   useEffect(() => {
     if (!prefs.displayName || !prefs.contactEmail) {
@@ -266,6 +288,21 @@ export default function Configuracoes() {
             })}
           </nav>
 
+          <div className="border-t border-border/20 px-2 py-3">
+            <Link to="/configuracoes">
+              <motion.button
+                className={`relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 transition-all bg-accent/10 text-accent ${
+                  sidebarCollapsed ? "justify-center" : ""
+                }`}
+                whileTap={{ scale: 0.98 }}
+              >
+                <motion.div className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-accent" layoutId="activeNav" />
+                <Settings className="h-[18px] w-[18px]" />
+                {!sidebarCollapsed ? <span className="text-[13px] font-medium">Configurações</span> : null}
+              </motion.button>
+            </Link>
+          </div>
+
           <div className="space-y-1 border-t border-border/20 px-2 py-3">
             <motion.button
               onClick={() => setIsDark(!isDark)}
@@ -288,19 +325,6 @@ export default function Configuracoes() {
                 <span className="text-[13px] font-medium">{isDark ? "Modo claro" : "Modo escuro"}</span>
               ) : null}
             </motion.button>
-
-            <Link to="/configuracoes">
-              <motion.button
-                className={`relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 transition-all bg-accent/10 text-accent ${
-                  sidebarCollapsed ? "justify-center" : ""
-                }`}
-                whileTap={{ scale: 0.98 }}
-              >
-                <motion.div className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-accent" layoutId="activeNav" />
-                <Settings className="h-[18px] w-[18px]" />
-                {!sidebarCollapsed ? <span className="text-[13px] font-medium">Configurações</span> : null}
-              </motion.button>
-            </Link>
 
             <Link to="/">
               <motion.button
@@ -335,19 +359,7 @@ export default function Configuracoes() {
                 Preferências da conta e do ambiente
               </span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-accent/20 bg-accent/15">
-                <span className="text-[11px] font-semibold text-accent">
-                  {(prefs.displayName || "U").trim().charAt(0).toUpperCase()}
-                </span>
-              </div>
-              <div className="hidden min-w-0 max-w-[200px] text-right lg:block">
-                <p className="truncate text-[12px] font-medium text-foreground">
-                  {prefs.displayName || "Usuário"}
-                </p>
-                <p className="truncate text-[10px] text-muted-foreground/40">{prefs.contactEmail || "—"}</p>
-              </div>
-            </div>
+            <PageHeaderActions />
           </motion.header>
 
           <div className="flex flex-wrap items-end justify-between gap-4 px-6 pb-2 pt-6">
@@ -602,6 +614,98 @@ export default function Configuracoes() {
                 <p className="text-[11px] text-muted-foreground/50">
                   Estes atalhos só ficam visíveis para o perfil ADMIN.
                 </p>
+              </SectionCard>
+            ) : null}
+
+            {currentRole === "ADMIN" ? (
+              <SectionCard icon={Briefcase} title="Serviços" description="Catálogo de serviços disponíveis." delay={0.32}>
+                <div className="space-y-2">
+                  {servicos.map((s) => (
+                    <div key={s.id} className="flex items-center gap-2">
+                      {editingServicoId === s.id ? (
+                        <>
+                          <input
+                            value={editingServicoNome}
+                            onChange={(e) => setEditingServicoNome(e.target.value)}
+                            className="flex-1 h-9 rounded-lg border border-border/25 bg-background/40 px-3 text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-accent/20"
+                            autoFocus
+                          />
+                          <button
+                            onClick={async () => { await atualizarServico.mutateAsync({ id: s.id, data: { nome: editingServicoNome } }); setEditingServicoId(null); }}
+                            className="h-9 px-3 rounded-lg bg-accent text-accent-foreground text-[11px] font-medium"
+                          >Salvar</button>
+                          <button onClick={() => setEditingServicoId(null)} className="h-9 px-2 rounded-lg text-muted-foreground text-[11px]">Cancelar</button>
+                        </>
+                      ) : (
+                        <>
+                          <span className="flex-1 text-[12px] text-foreground/80">{s.nome}</span>
+                          <button onClick={() => { setEditingServicoId(s.id); setEditingServicoNome(s.nome); }} className="h-7 w-7 flex items-center justify-center rounded text-muted-foreground hover:text-accent hover:bg-accent/5 transition-colors"><Pencil className="h-3.5 w-3.5" /></button>
+                          <button onClick={() => deletarServico.mutate(s.id)} className="h-7 w-7 flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                  <div className="flex items-center gap-2 pt-1">
+                    <input
+                      value={novoServico}
+                      onChange={(e) => setNovoServico(e.target.value)}
+                      placeholder="Nome do novo serviço"
+                      className="flex-1 h-9 rounded-lg border border-border/25 bg-background/40 px-3 text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-accent/20 placeholder:text-muted-foreground/30"
+                      onKeyDown={(e) => { if (e.key === "Enter" && novoServico.trim()) { criarServico.mutate({ nome: novoServico.trim() }); setNovoServico(""); } }}
+                    />
+                    <button
+                      onClick={() => { if (novoServico.trim()) { criarServico.mutate({ nome: novoServico.trim() }); setNovoServico(""); } }}
+                      disabled={!novoServico.trim() || criarServico.isPending}
+                      className="h-9 w-9 flex items-center justify-center rounded-lg bg-accent/10 text-accent hover:bg-accent/20 transition-colors disabled:opacity-40"
+                    ><Plus className="h-4 w-4" /></button>
+                  </div>
+                </div>
+              </SectionCard>
+            ) : null}
+
+            {currentRole === "ADMIN" ? (
+              <SectionCard icon={Shield} title="Cargos" description="Catálogo de cargos da organização." delay={0.36}>
+                <div className="space-y-2">
+                  {cargos.map((c) => (
+                    <div key={c.id} className="flex items-center gap-2">
+                      {editingCargoId === c.id ? (
+                        <>
+                          <input
+                            value={editingCargoNome}
+                            onChange={(e) => setEditingCargoNome(e.target.value)}
+                            className="flex-1 h-9 rounded-lg border border-border/25 bg-background/40 px-3 text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-accent/20"
+                            autoFocus
+                          />
+                          <button
+                            onClick={async () => { await atualizarCargo.mutateAsync({ id: c.id, data: { nome: editingCargoNome } }); setEditingCargoId(null); }}
+                            className="h-9 px-3 rounded-lg bg-accent text-accent-foreground text-[11px] font-medium"
+                          >Salvar</button>
+                          <button onClick={() => setEditingCargoId(null)} className="h-9 px-2 rounded-lg text-muted-foreground text-[11px]">Cancelar</button>
+                        </>
+                      ) : (
+                        <>
+                          <span className="flex-1 text-[12px] text-foreground/80">{c.nome}</span>
+                          <button onClick={() => { setEditingCargoId(c.id); setEditingCargoNome(c.nome); }} className="h-7 w-7 flex items-center justify-center rounded text-muted-foreground hover:text-accent hover:bg-accent/5 transition-colors"><Pencil className="h-3.5 w-3.5" /></button>
+                          <button onClick={() => deletarCargo.mutate(c.id)} className="h-7 w-7 flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                  <div className="flex items-center gap-2 pt-1">
+                    <input
+                      value={novoCargo}
+                      onChange={(e) => setNovoCargo(e.target.value)}
+                      placeholder="Nome do novo cargo"
+                      className="flex-1 h-9 rounded-lg border border-border/25 bg-background/40 px-3 text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-accent/20 placeholder:text-muted-foreground/30"
+                      onKeyDown={(e) => { if (e.key === "Enter" && novoCargo.trim()) { criarCargo.mutate({ nome: novoCargo.trim() }); setNovoCargo(""); } }}
+                    />
+                    <button
+                      onClick={() => { if (novoCargo.trim()) { criarCargo.mutate({ nome: novoCargo.trim() }); setNovoCargo(""); } }}
+                      disabled={!novoCargo.trim() || criarCargo.isPending}
+                      className="h-9 w-9 flex items-center justify-center rounded-lg bg-accent/10 text-accent hover:bg-accent/20 transition-colors disabled:opacity-40"
+                    ><Plus className="h-4 w-4" /></button>
+                  </div>
+                </div>
               </SectionCard>
             ) : null}
 

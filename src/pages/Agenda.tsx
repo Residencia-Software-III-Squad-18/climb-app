@@ -8,7 +8,9 @@ import {
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import ClimbLogo from "@/components/login/ClimbLogo";
+import { UserAvatar } from "@/components/UserAvatar";
 import { useCreateReuniao, useDeleteReuniao, useEmpresas, useReunioes, useUpdateReuniao } from "@/services";
+import { useAuthStore } from "@/store/useAuthStore";
 
 const navItems = [
   { icon: Home, label: "Home", path: "/dashboard" },
@@ -169,6 +171,8 @@ const Agenda = () => {
   const [eventError, setEventError] = useState("");
   const [editingEventId, setEditingEventId] = useState<number | null>(null);
   const navigate = useNavigate();
+  const basicUserData = useAuthStore((state) => state.basicUserData);
+  const userData = useAuthStore((state) => state.userData);
   const { data: reunioes = [] } = useReunioes();
   const { data: empresas = [] } = useEmpresas();
   const { mutateAsync: createReuniao, isPending: creatingReuniao } = useCreateReuniao();
@@ -182,6 +186,16 @@ const Agenda = () => {
     month: "long",
     year: "numeric",
   });
+  const userName =
+    basicUserData?.nomeCompleto ||
+    userData?.nomeCompleto ||
+    userData?.pessoa?.nomeCompleto ||
+    "Usuário";
+  const userPhoto =
+    basicUserData?.fotoPerfil ||
+    userData?.fotoPerfil ||
+    userData?.pessoa?.fotoPerfil ||
+    null;
 
   const calendarGrid = useMemo(() => buildCalendarGrid(currentYear, currentMonth), [currentMonth, currentYear]);
   const dynamicMonthEvents = useMemo<Record<number, AgendaEvent[]>>(() => {
@@ -375,6 +389,7 @@ const Agenda = () => {
               <motion.button onClick={() => setShowAddEvent(true)} className="h-9 px-4 rounded-lg bg-accent text-accent-foreground text-[12px] font-semibold flex items-center gap-2 shadow-[0_2px_10px_-2px_hsl(var(--accent)/0.3)]" whileHover={{ scale: 1.02, y: -1 }} whileTap={{ scale: 0.98 }}>
                 <Plus className="w-3.5 h-3.5" /> Agendar
               </motion.button>
+              <UserAvatar name={userName} photoUrl={userPhoto} />
             </div>
           </motion.header>
 

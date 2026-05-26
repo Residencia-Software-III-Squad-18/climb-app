@@ -19,6 +19,7 @@ interface ExchangeCodeResponse {
       nomeCompleto: string;
       email: string;
       cargoNome: string;
+      fotoPerfil?: string | null;
     };
   };
 }

@@ -77,7 +77,7 @@ const Index = () => {
         path: "/",
       });
 
-      setCookie(null, "@CLIMB:RT", response.refreshToken, {
+      setCookie(null, "@CLIMB:R", response.refreshToken, {
         maxAge: 60 * 60 * 24 * 30,
         path: "/",
       });
@@ -86,6 +86,7 @@ const Index = () => {
         id: response.usuario?.id,
         email: response.usuario?.email,
         nomeCompleto: response.usuario?.nomeCompleto,
+        fotoPerfil: response.usuario?.fotoPerfil,
       });
 
       const possibleRole =
@@ -142,7 +143,7 @@ const Index = () => {
         path: "/",
       });
 
-      setCookie(null, "@CLIMB:RT", data.refreshToken, {
+      setCookie(null, "@CLIMB:R", data.refreshToken, {
         maxAge: 60 * 60 * 24 * 30,
         path: "/",
       });
@@ -152,6 +153,7 @@ const Index = () => {
         id: data.usuario.id,
         email: data.usuario.email,
         nomeCompleto: data.usuario.nomeCompleto,
+        fotoPerfil: data.usuario.fotoPerfil,
       });
 
       // Salvar role

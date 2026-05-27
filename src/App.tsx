@@ -12,9 +12,16 @@ import RecuperarSenha from "./pages/RecuperarSenha.tsx";
 import SolicitarAcesso from "./pages/SolicitarAcesso.tsx";
 import Agenda from "./pages/Agenda.tsx";
 import Permissoes from "./pages/Permissoes.tsx";
-import Empresas from "./pages/Empresas.tsx";
+import EmpresasIndex from "./pages/empresas/EmpresasIndex.tsx";
+import EmpresaDetalhe from "./pages/empresas/EmpresaDetalhe.tsx";
+import EmpresaForm from "./pages/empresas/EmpresaForm.tsx";
 import Documentos from "./pages/Documentos.tsx";
 import Contratos from "./pages/Contratos.tsx";
+import Usuarios from "./pages/Usuarios.tsx";
+import Configuracoes from "./pages/Configuracoes.tsx";
+import Propostas from "./pages/Propostas.tsx";
+import Relatorios from "./pages/Relatorios.tsx";
+import Planilhas from "./pages/Planilhas.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const App = () => (
@@ -80,7 +87,31 @@ const App = () => (
               path="/empresas"
               element={
                 <PrivateRoute>
-                  <Empresas />
+                  <EmpresasIndex />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/empresas/nova"
+              element={
+                <PrivateRoute>
+                  <EmpresaForm />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/empresas/:id"
+              element={
+                <PrivateRoute>
+                  <EmpresaDetalhe />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/empresas/:id/editar"
+              element={
+                <PrivateRoute>
+                  <EmpresaForm />
                 </PrivateRoute>
               }
             />
@@ -97,6 +128,48 @@ const App = () => (
               element={
                 <PrivateRoute>
                   <Contratos />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/usuarios"
+              element={
+                <PrivateRoute>
+                  <Usuarios />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/configuracoes"
+              element={
+                <PrivateRoute>
+                  <Configuracoes />
+                </PrivateRoute>
+              }
+            />
+
+            <Route
+              path="/propostas"
+              element={
+                <PrivateRoute>
+                  <Propostas />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/relatorios"
+              element={
+                <PrivateRoute>
+                  <Relatorios />
+                </PrivateRoute>
+              }
+            />
+
+            <Route
+              path="/planilhas"
+              element={
+                <PrivateRoute>
+                  <Planilhas />
                 </PrivateRoute>
               }
             />

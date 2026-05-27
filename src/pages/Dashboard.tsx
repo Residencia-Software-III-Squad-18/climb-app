@@ -1,6 +1,6 @@
 import { useMemo, useContext, useState } from "react";
 import { useTheme } from "@/hooks/use-theme";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { AuthContext } from "@/context/provider";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -16,7 +16,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Plus,
-  Bell,
   Search,
   ArrowUpRight,
   ArrowDownRight,
@@ -45,8 +44,11 @@ import {
   useUsuarios,
   usePermissoes,
 } from "@/services";
-
 import { useAuthStore } from "@/store/useAuthStore";
+import { useCurrentRole } from "@/hooks/useAccess";
+import { getNavItemsForRole } from "@/lib/navItems";
+import { canAccessModule } from "@/lib/access";
+import { PageHeaderActions } from "@/components/layout/PageHeaderActions";
 
 /* ══════════════════════════════════════════════════
    TYPES
@@ -101,16 +103,6 @@ interface StageItem {
 /* ══════════════════════════════════════════════════
    CONSTS
    ══════════════════════════════════════════════════ */
-
-const navItems = [
-  { icon: Home, label: "Home", path: "/dashboard" },
-  { icon: FileText, label: "Contratos", path: "/contratos" },
-  { icon: CalendarIcon, label: "Agenda", path: "/agenda" },
-  { icon: Shield, label: "Permissões", path: "/permissoes" },
-  { icon: Building2, label: "Empresas", path: "/empresas" },
-  { icon: FileCheck, label: "Documentos", path: "/documentos" },
-  { icon: Settings, label: "Configurações", path: "/dashboard" },
-];
 
 const badgeStyles: Record<PipelineRow["badge"], string> = {
   active: "bg-accent/15 text-accent border-accent/20",
@@ -346,8 +338,11 @@ const Dashboard = () => {
   const basicUserData = useAuthStore((state) => state.basicUserData);
   const userData = useAuthStore((state) => state.userData);
 
+  const location = useLocation();
+  const currentRole = useCurrentRole();
+  const navItems = useMemo(() => getNavItemsForRole(currentRole), [currentRole]);
+
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [activeNav, setActiveNav] = useState(0);
 
   const [maxPipeline, setMaxPipeline] = useState(false);
   const [maxNotifications, setMaxNotifications] = useState(false);
@@ -367,7 +362,6 @@ const Dashboard = () => {
     label: string;
     docs: string[];
   } | null>(null);
-
   const {
     data: contratos = [],
     isLoading: loadingContratos,
@@ -409,16 +403,16 @@ const Dashboard = () => {
     loadingEmpresas ||
     loadingReunioes ||
     loadingDocumentos ||
-    loadingUsuarios ||
-    loadingPermissoes;
+    (canAccessModule(currentRole, "usuarios") && loadingUsuarios) ||
+    (canAccessModule(currentRole, "permissoes") && loadingPermissoes);
 
   const hasError =
     errorContratos ||
     errorEmpresas ||
     errorReunioes ||
     errorDocumentos ||
-    errorUsuarios ||
-    errorPermissoes;
+    (canAccessModule(currentRole, "usuarios") && errorUsuarios) ||
+    (canAccessModule(currentRole, "permissoes") && errorPermissoes);
 
   const userName =
     basicUserData?.nomeCompleto ||
@@ -539,8 +533,8 @@ const Dashboard = () => {
       const isCliente = contrato.status.toLowerCase().includes("ativo");
 
       const documentosFormatados = empresaDocs.map((doc) => ({
-        name: doc.nome,
-        status: (doc.caminho ? "validated" : "pending") as
+        name: doc.tipoDocumento,
+        status: (doc.url ? "validated" : "pending") as
           | "validated"
           | "processing"
           | "pending",
@@ -561,7 +555,7 @@ const Dashboard = () => {
         },
         {
           name: "Validação documental",
-          done: empresaDocs.some((doc) => Boolean(doc.caminho)),
+          done: empresaDocs.some((doc) => Boolean(doc.url)),
         },
         {
           name: "Processo ativo",
@@ -580,10 +574,10 @@ const Dashboard = () => {
         isCliente,
         ultimoContato: formatDate(contrato.dataAtualizacao),
         contratoInfo: {
-          negociado: contrato.descricao,
+          negociado: contrato.descricao ?? `Status: ${contrato.status}`,
           validade: formatDate(contrato.dataFim),
           valor: formatCurrency(contrato.valor),
-          ultimoContato: formatDate(contrato.dataAtualizacao),
+          ultimoContato: formatDate(contrato.dataAtualizacao ?? contrato.dataInicio),
         },
         documentos: documentosFormatados,
         fluxo: fluxoBase,
@@ -653,8 +647,8 @@ const Dashboard = () => {
     const contractNotifications: NotificationItem[] = contratos
       .slice(0, 4)
       .map((contrato) => ({
-        text: `Contrato "${contrato.titulo}" está com status ${contrato.status}`,
-        time: getRelativeLabel(contrato.dataAtualizacao),
+        text: `Contrato #${contrato.id} está com status ${contrato.status}`,
+        time: getRelativeLabel(contrato.dataAtualizacao ?? contrato.dataInicio),
         icon: contrato.status.toLowerCase().includes("ativo")
           ? CheckCircle2
           : AlertCircle,
@@ -666,10 +660,10 @@ const Dashboard = () => {
     const docNotifications: NotificationItem[] = documentos
       .slice(0, 3)
       .map((doc) => ({
-        text: `Documento "${doc.nome}" enviado para empresa ${doc.empresaId}`,
-        time: getRelativeLabel(doc.dataUpload),
+        text: `Documento "${doc.tipoDocumento}" — ${doc.nomeEmpresa}`,
+        time: doc.validado === "APROVADO" ? "Aprovado" : doc.validado === "REPROVADO" ? "Reprovado" : "Pendente",
         icon: FileText,
-        type: doc.caminho ? "success" : "info",
+        type: doc.url ? "success" : "info",
       }));
 
     const meetingNotifications: NotificationItem[] = reunioes
@@ -691,26 +685,29 @@ const Dashboard = () => {
   }, [contratos, documentos, reunioes]);
 
   const stages = useMemo<StageItem[]>(() => {
+    const label = (item: (typeof contratos)[number]) =>
+      item.titulo ?? `Contrato #${item.id}`;
+
     const propostaDocs = contratos
       .filter((item) => item.status.toLowerCase().includes("proposta"))
-      .map((item) => item.titulo);
+      .map(label);
 
     const analiseDocs = contratos
       .filter((item) => {
         const status = item.status.toLowerCase();
         return status.includes("análise") || status.includes("analise");
       })
-      .map((item) => item.titulo);
+      .map(label);
 
-    const contratoDocs = contratos.map((item) => item.titulo);
+    const contratoDocs = contratos.map(label);
 
     const ativoDocs = contratos
       .filter((item) => item.status.toLowerCase().includes("ativo"))
-      .map((item) => item.titulo);
+      .map(label);
 
     const encerradoDocs = contratos
       .filter((item) => item.status.toLowerCase().includes("encerr"))
-      .map((item) => item.titulo);
+      .map(label);
 
     return [
       {
@@ -1412,40 +1409,55 @@ const Dashboard = () => {
           </div>
 
           <nav className="flex-1 space-y-1 px-2 py-4">
-            {navItems.map((item, index) => (
-              <motion.button
-                key={item.label}
-                onClick={() => {
-                  setActiveNav(index);
-                  navigate(item.path);
-                }}
-                className={`group relative flex w-full items-center gap-3 rounded-lg transition-all duration-200 ${
-                  sidebarCollapsed
-                    ? "justify-center px-2 py-2.5"
-                    : "px-3 py-2.5"
-                } ${
-                  activeNav === index
-                    ? "bg-accent/10 text-accent"
-                    : "text-muted-foreground hover:bg-muted/30 hover:text-foreground"
-                }`}
-                whileHover={{ x: sidebarCollapsed ? 0 : 2 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                {activeNav === index && (
-                  <motion.div
-                    className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-accent"
-                    layoutId="activeNav"
-                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                  />
-                )}
+            {navItems.map((item) => {
+              const isActive = location.pathname === item.path;
+              return (
+                <motion.button
+                  key={item.label}
+                  onClick={() => navigate(item.path)}
+                  className={`group relative flex w-full items-center gap-3 rounded-lg transition-all duration-200 ${
+                    sidebarCollapsed
+                      ? "justify-center px-2 py-2.5"
+                      : "px-3 py-2.5"
+                  } ${
+                    isActive
+                      ? "bg-accent/10 text-accent"
+                      : "text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+                  }`}
+                  whileHover={{ x: sidebarCollapsed ? 0 : 2 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  {isActive && (
+                    <motion.div
+                      className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-accent"
+                      layoutId="activeNav"
+                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    />
+                  )}
 
-                <item.icon className="h-[18px] w-[18px] shrink-0" />
-                {!sidebarCollapsed && (
-                  <span className="text-[13px] font-medium">{item.label}</span>
-                )}
-              </motion.button>
-            ))}
+                  <item.icon className="h-[18px] w-[18px] shrink-0" />
+                  {!sidebarCollapsed && (
+                    <span className="text-[13px] font-medium">{item.label}</span>
+                  )}
+                </motion.button>
+              );
+            })}
           </nav>
+
+          <div className="border-t border-border/20 px-2 py-3">
+            <motion.button
+              onClick={() => navigate("/configuracoes")}
+              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground transition-all duration-200 hover:bg-muted/30 hover:text-foreground ${
+                location.pathname === "/configuracoes" ? "bg-accent/10 text-accent" : ""
+              } ${sidebarCollapsed ? "justify-center" : ""}`}
+              whileTap={{ scale: 0.98 }}
+            >
+              <Settings className="h-[18px] w-[18px]" />
+              {!sidebarCollapsed && (
+                <span className="text-[13px] font-medium">Configurações</span>
+              )}
+            </motion.button>
+          </div>
 
           <div className="space-y-1 border-t border-border/20 px-2 py-3">
             <motion.button
@@ -1536,31 +1548,7 @@ const Dashboard = () => {
                 </kbd>
               </motion.div>
 
-              <motion.button
-                onClick={() => setMaxNotifications(true)}
-                className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-border/25 bg-card/20 text-muted-foreground transition-all duration-200 hover:border-accent/30 hover:text-foreground"
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-              >
-                <Bell className="h-4 w-4" />
-                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[8px] font-bold text-accent-foreground">
-                  {allNotifications.length > 9 ? "9+" : allNotifications.length}
-                </span>
-              </motion.button>
-
-              <motion.div
-                className="flex h-9 w-9 items-center justify-center rounded-lg border border-accent/20 bg-accent/15"
-                whileHover={{ scale: 1.03 }}
-              >
-                <span className="text-[11px] font-semibold text-accent">
-                  {userName
-                    .split(" ")
-                    .map((part) => part[0])
-                    .slice(0, 2)
-                    .join("")
-                    .toUpperCase()}
-                </span>
-              </motion.div>
+              <PageHeaderActions />
             </div>
           </motion.header>
 
@@ -1575,13 +1563,15 @@ const Dashboard = () => {
               variants={itemVariants}
             >
               <div className="flex items-center gap-3">
-                <motion.button
-                  className="flex h-9 items-center gap-2 rounded-lg bg-accent px-4 text-[12px] font-semibold text-accent-foreground shadow-[0_2px_10px_-2px_hsl(var(--accent)/0.3)]"
-                  whileHover={{ scale: 1.02, y: -1 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <Plus className="h-3.5 w-3.5" /> Novo Contrato
-                </motion.button>
+                {canAccessModule(currentRole, "contratos") && (
+                  <motion.button
+                    className="flex h-9 items-center gap-2 rounded-lg bg-accent px-4 text-[12px] font-semibold text-accent-foreground shadow-[0_2px_10px_-2px_hsl(var(--accent)/0.3)]"
+                    whileHover={{ scale: 1.02, y: -1 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Novo Contrato
+                  </motion.button>
+                )}
 
                 <div className="flex h-9 items-center gap-2 rounded-lg border border-border/25 bg-card/20 px-3 text-[12px] text-muted-foreground">
                   <CalendarIcon className="h-3.5 w-3.5" />
@@ -1728,6 +1718,7 @@ const Dashboard = () => {
             </div>
 
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
+              {canAccessModule(currentRole, "empresas") && (
               <motion.div
                 className="overflow-hidden rounded-xl border border-border/25 bg-card/40 backdrop-blur-sm xl:col-span-3"
                 variants={itemVariants}
@@ -1797,9 +1788,10 @@ const Dashboard = () => {
                   )}
                 </div>
               </motion.div>
+              )}
 
               <motion.div
-                className="overflow-hidden rounded-xl border border-border/25 bg-card/40 backdrop-blur-sm xl:col-span-2"
+                className={`overflow-hidden rounded-xl border border-border/25 bg-card/40 backdrop-blur-sm ${canAccessModule(currentRole, "empresas") ? "xl:col-span-2" : "xl:col-span-5"}`}
                 variants={itemVariants}
               >
                 <SectionHeader

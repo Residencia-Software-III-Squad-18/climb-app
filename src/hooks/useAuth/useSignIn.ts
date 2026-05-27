@@ -17,27 +17,16 @@ export interface Session {
     id?: number;
     email?: string;
     nomeCompleto?: string;
+    cargoNome?: string;
+    perfil?: string;
   };
 }
 
 export const signInRequest = async (credentials: SignInCredentials) => {
   try {
     const response = await api.post("/auth/login", credentials);
-
-    // A API retorna: {
-    //   success,
-    //   data: { accessToken, refreshToken, usuario },
-    //   expiresIn,
-    //   message,
-    //   timestamp
-    // }
-
-    const { data: sessionData, expiresIn } = response.data;
-
-    return {
-      ...sessionData,
-      expiresIn,
-    };
+    // Interceptor já desempacotou ApiResponse → response.data = LoginResponseDTO
+    return response.data as Session;
   } catch (error: unknown) {
     return Promise.reject(error);
   }

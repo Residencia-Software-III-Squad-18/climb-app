@@ -29,6 +29,9 @@ export interface BasicUserData {
   id?: number;
   email?: string;
   nomeCompleto?: string;
+  empresaId?: number;
+  cargoNome?: string;
+  perfil?: string;
 }
 
 interface AuthState {

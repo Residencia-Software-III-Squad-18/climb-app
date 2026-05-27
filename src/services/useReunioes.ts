@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
+import { toast } from "sonner";
 import { api } from "@/api";
 import {
   GOOGLE_ACCESS_TOKEN_STORAGE_KEY,
@@ -255,8 +256,10 @@ export function useCreateReuniao() {
       return normalizeReuniao(response.data);
     },
     onSuccess: () => {
+      toast.success("Reunião criada com sucesso.");
       queryClient.invalidateQueries({ queryKey: ["reunioes"] });
     },
+    onError: () => { toast.error("Erro ao salvar. Tente novamente."); },
   });
 }
 
@@ -275,8 +278,10 @@ export function useUpdateReuniao() {
       return normalizeReuniao(response.data);
     },
     onSuccess: () => {
+      toast.success("Reunião atualizada com sucesso.");
       queryClient.invalidateQueries({ queryKey: ["reunioes"] });
     },
+    onError: () => { toast.error("Erro ao salvar. Tente novamente."); },
   });
 }
 
@@ -290,7 +295,9 @@ export function useDeleteReuniao() {
       });
     },
     onSuccess: () => {
+      toast.success("Reunião excluída com sucesso.");
       queryClient.invalidateQueries({ queryKey: ["reunioes"] });
     },
+    onError: () => { toast.error("Erro ao excluir. Tente novamente."); },
   });
 }

@@ -1,84 +1,108 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api";
+import { toast } from "sonner";
+
+export type DocumentoStatus = "PENDENTE" | "EM_ANALISE" | "APROVADO" | "REPROVADO";
 
 export interface Documento {
   id: number;
-  nome: string;
-  descricao: string;
-  tipo: string;
-  caminho: string;
-  dataUpload: string;
-  usuarioId: number;
   empresaId: number;
+  nomeEmpresa: string;
+  tipoDocumento: string;
+  url: string | null;
+  validado: DocumentoStatus;
+  analistaId: number;
+  nomeAnalista: string;
 }
 
-interface CreateDocumentoDTO {
-  nome: string;
-  descricao: string;
-  tipo: string;
-  caminho: string;
-  usuarioId: number;
+interface SolicitarDocumentoDTO {
   empresaId: number;
+  tipoDocumento: string;
+  analistaId: number;
 }
 
 export function useDocumentos() {
   return useQuery<Documento[]>({
     queryKey: ["documentos"],
     queryFn: async () => {
-      const response = await api.get<Documento[]>("/documentos");
-      return response.data;
+      const response = await api.get<Documento[] | { content: Documento[] }>("/documentos");
+      const data = response.data;
+      return Array.isArray(data) ? data : (data as any)?.content ?? [];
     },
   });
 }
 
-export function useDocumentoById(id: number) {
-  return useQuery<Documento>({
-    queryKey: ["documentos", id],
+export function useDocumentosByEmpresa(empresaId?: number) {
+  return useQuery<Documento[]>({
+    queryKey: ["documentos", "empresa", empresaId],
     queryFn: async () => {
-      const response = await api.get<Documento>(`/documentos/${id}`);
-      return response.data;
+      const response = await api.get<Documento[] | { content: Documento[] }>(
+        `/documentos/empresa/${empresaId}`
+      );
+      const data = response.data;
+      return Array.isArray(data) ? data : (data as any)?.content ?? [];
     },
-    enabled: !!id,
+    enabled: !!empresaId,
   });
 }
 
-export function useCreateDocumento() {
+export function useSolicitarDocumento() {
   const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: async (data: CreateDocumentoDTO) => {
-      const response = await api.post<Documento>("/documentos", data);
+    mutationFn: async (data: SolicitarDocumentoDTO) => {
+      const response = await api.post<Documento>("/documentos/solicitar", data);
       return response.data;
     },
     onSuccess: () => {
+      toast.success("Documento solicitado.");
       queryClient.invalidateQueries({ queryKey: ["documentos"] });
     },
+    onError: () => { toast.error("Erro ao solicitar. Tente novamente."); },
   });
 }
 
-export function useUpdateDocumento() {
+export function useEnviarArquivoDocumento() {
   const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: Partial<CreateDocumentoDTO> }) => {
-      const response = await api.put<Documento>(`/documentos/${id}`, data);
+    mutationFn: async ({ id, formData }: { id: number; formData: FormData }) => {
+      const response = await api.patch<Documento>(`/documentos/${id}/enviar`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
       return response.data;
     },
     onSuccess: () => {
+      toast.success("Arquivo enviado.");
       queryClient.invalidateQueries({ queryKey: ["documentos"] });
     },
+    onError: () => { toast.error("Erro ao enviar. Tente novamente."); },
+  });
+}
+
+export function useValidarDocumento() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, validado }: { id: number; validado: DocumentoStatus }) => {
+      const response = await api.patch<Documento>(`/documentos/${id}/validar`, { validado });
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success("Documento validado.");
+      queryClient.invalidateQueries({ queryKey: ["documentos"] });
+    },
+    onError: () => { toast.error("Erro ao validar. Tente novamente."); },
   });
 }
 
 export function useDeleteDocumento() {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async (id: number) => {
       await api.delete(`/documentos/${id}`);
     },
     onSuccess: () => {
+      toast.success("Documento excluído.");
       queryClient.invalidateQueries({ queryKey: ["documentos"] });
     },
+    onError: () => { toast.error("Erro ao excluir. Tente novamente."); },
   });
 }

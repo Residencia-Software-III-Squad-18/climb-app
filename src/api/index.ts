@@ -46,7 +46,25 @@ const processQueue = (error: unknown, token: string | null = null) => {
 };
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const d = response.data;
+    if (
+      d !== null &&
+      d !== undefined &&
+      typeof d === "object" &&
+      !Array.isArray(d) &&
+      typeof d.success === "boolean" &&
+      Object.prototype.hasOwnProperty.call(d, "data")
+    ) {
+      if (!d.success) {
+        return Promise.reject(
+          Object.assign(new Error(d.message ?? "Erro desconhecido"), { response }),
+        );
+      }
+      response.data = d.data;
+    }
+    return response;
+  },
   async (error) => {
     const originalRequest = error.config;
 

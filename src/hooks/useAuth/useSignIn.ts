@@ -18,6 +18,7 @@ export interface Session {
     email?: string;
     nomeCompleto?: string;
     cargoNome?: string;
+    perfil?: string;
   };
 }
 

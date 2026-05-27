@@ -174,8 +174,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
         tokenExpiresAt = calculateExpiresAt(expiresIn);
 
-        // Usar cargoNome da resposta da API para definir o perfil
-        setRole(usuario?.cargoNome);
+        // Usar perfil da resposta da API; fallback para cargoNome se perfil não vier
+        setRole(usuario?.perfil ?? usuario?.cargoNome);
 
         // Salvar dados do usuário no store
         if (usuario) {

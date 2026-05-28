@@ -9,19 +9,22 @@ import {
   Loader2,
   CheckCircle2,
 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { setCookie } from "nookies";
 import ClimbLogo from "@/components/login/ClimbLogo";
 import { useTheme } from "@/hooks/use-theme";
-import { Button } from "@/components/ui/button";
+import { useCompleteRegistration } from "@/hooks/useAuth/useGoogleAuth";
+import { useUserRoleStore } from "@/store/useUserRoleStore";
 
 const FirstAccess = () => {
   const { isDark, setIsDark } = useTheme();
   const navigate = useNavigate();
+  const setRole = useUserRoleStore((state) => state.setRole);
+  const { mutateAsync: completeRegistration, isPending } = useCompleteRegistration();
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
@@ -119,25 +122,43 @@ const FirstAccess = () => {
       return;
     }
 
-    setIsLoading(true);
+    const pendingToken = sessionStorage.getItem("@CLIMB:PENDING_TOKEN");
+    const cargoId = Number(sessionStorage.getItem("@CLIMB:PENDING_CARGO_ID") ?? 0);
+
+    if (!pendingToken) {
+      toast.error("Sessão expirada. Faça login novamente.");
+      navigate("/solicitar-acesso");
+      return;
+    }
 
     try {
-      // Simulação de chamada à API
-      // await completeFirstAccess(formData);
+      const response = await completeRegistration({
+        pendingToken,
+        cpf: formData.cpf.replace(/\D/g, ""),
+        contato: formData.contato,
+        senha: formData.senha,
+        cargoId,
+      });
 
-      // Aguardar um pouco para simular requisição
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      setCookie(null, "@CLIMB:T", response.data.accessToken, {
+        maxAge: 60 * 60 * 8,
+        path: "/",
+      });
+
+      setCookie(null, "@CLIMB:RT", response.data.refreshToken, {
+        maxAge: 60 * 60 * 24 * 30,
+        path: "/",
+      });
+
+      setRole(response.data.usuario.cargoNome || "USER");
+
+      sessionStorage.removeItem("@CLIMB:PENDING_TOKEN");
+      sessionStorage.removeItem("@CLIMB:PENDING_CARGO_ID");
 
       toast.success("Cadastro completado com sucesso!");
-
-      // Redirecionar para dashboard após sucesso
-      setTimeout(() => {
-        navigate("/dashboard");
-      }, 1500);
-    } catch (error) {
+      navigate("/dashboard");
+    } catch {
       toast.error("Erro ao completar o cadastro. Tente novamente.");
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -388,12 +409,12 @@ const FirstAccess = () => {
               {/* Submit Button */}
               <motion.button
                 type="submit"
-                disabled={isLoading}
+                disabled={isPending}
                 className="w-full mt-6 bg-accent hover:bg-accent/90 text-white font-medium py-2.5 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
-                {isLoading ? (
+                {isPending ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" />
                     Completando cadastro...

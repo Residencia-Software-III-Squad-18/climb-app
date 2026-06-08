@@ -5,7 +5,8 @@ export interface Usuario {
   id: number;
   email: string;
   nomeCompleto: string;
-  cargo: string;
+  cargo?: string | { id?: number; nome?: string };
+  cargoNome?: string;
   aceitouTermos: boolean;
   dataCriacao: string;
   dataAtualizacao: string;

@@ -32,6 +32,8 @@ import {
   Briefcase,
   MapPin,
   FileCheck,
+  UserCheck,
+  ScrollText,
 } from "lucide-react";
 
 import ClimbLogo from "@/components/login/ClimbLogo";
@@ -105,10 +107,12 @@ interface StageItem {
 const navItems = [
   { icon: Home, label: "Home", path: "/dashboard" },
   { icon: FileText, label: "Contratos", path: "/contratos" },
+  { icon: ScrollText, label: "Propostas", path: "/propostas" },
   { icon: CalendarIcon, label: "Agenda", path: "/agenda" },
   { icon: Shield, label: "Permissões", path: "/permissoes" },
   { icon: Building2, label: "Empresas", path: "/empresas" },
   { icon: FileCheck, label: "Documentos", path: "/documentos" },
+  { icon: UserCheck, label: "Solicitações", path: "/aprovar-acesso" },
   { icon: Settings, label: "Configurações", path: "/dashboard" },
 ];
 

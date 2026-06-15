@@ -5,3 +5,5 @@ export * from "./useEmpresas";
 export * from "./useReunioes";
 export * from "./usePermissoes";
 export * from "./useUsuarios";
+export * from "./useCargos";
+export * from "./useParticipantesReuniao";

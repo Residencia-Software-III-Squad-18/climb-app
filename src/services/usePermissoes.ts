@@ -2,18 +2,34 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api";
 
 export interface Permissao {
-  id: number;
+  idPermissao: number;
   codigo: string;
-  nome: string;
   descricao: string;
-  dataCriacao: string;
-  dataAtualizacao: string;
 }
 
 interface CreatePermissaoDTO {
   codigo: string;
-  nome: string;
   descricao: string;
+}
+
+interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+  message?: string;
+  timestamp?: string;
+}
+
+export interface UsuarioPermissaoAssociacao {
+  id: number;
+  usuarioId: number;
+  permissaoId: number;
+  usuario?: unknown;
+  permissao?: Permissao;
+}
+
+interface CreateUsuarioPermissaoDTO {
+  usuarioId: number;
+  permissaoId: number;
 }
 
 export function usePermissoes() {
@@ -78,19 +94,58 @@ export function useDeletePermissao() {
   });
 }
 
-export interface UsuarioPermissao {
-  usuarioId: number;
-  permissoes: Permissao[];
-}
-
 export function usePermissoesPorUsuario(usuarioId: number) {
-  return useQuery<UsuarioPermissao>({
+  return useQuery<string[]>({
     queryKey: ["usuario-permissoes", usuarioId],
     queryFn: async () => {
-      const response = await api.get<UsuarioPermissao>(`/rbac/usuario/${usuarioId}/permissoes`);
-      return response.data;
+      const response = await api.get<ApiResponse<string[]>>(`/rbac/usuario/${usuarioId}/permissoes`);
+      return response.data.data;
     },
     enabled: !!usuarioId,
+  });
+}
+
+export function useUsuarioPermissoesAssociacoes(usuarioId: number) {
+  return useQuery<UsuarioPermissaoAssociacao[]>({
+    queryKey: ["usuario-permissoes-associacoes", usuarioId],
+    queryFn: async () => {
+      const response = await api.get<ApiResponse<UsuarioPermissaoAssociacao[]>>(
+        `/usuario-permissoes/usuario/${usuarioId}`
+      );
+      return response.data.data;
+    },
+    enabled: !!usuarioId,
+  });
+}
+
+export function useCreateUsuarioPermissao() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: CreateUsuarioPermissaoDTO) => {
+      const response = await api.post<ApiResponse<UsuarioPermissaoAssociacao>>("/usuario-permissoes", data);
+      return response.data.data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["usuario-permissoes", variables.usuarioId] });
+      queryClient.invalidateQueries({ queryKey: ["usuario-permissoes-associacoes", variables.usuarioId] });
+    },
+  });
+}
+
+export function useDeleteUsuarioPermissao() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id }: { id: number; usuarioId?: number }) => {
+      await api.delete(`/usuario-permissoes/${id}`);
+    },
+    onSuccess: (_, variables) => {
+      if (variables.usuarioId) {
+        queryClient.invalidateQueries({ queryKey: ["usuario-permissoes", variables.usuarioId] });
+        queryClient.invalidateQueries({ queryKey: ["usuario-permissoes-associacoes", variables.usuarioId] });
+      }
+    },
   });
 }
 
@@ -98,8 +153,8 @@ export function useTemPermissao(usuarioId: number, permissao: string) {
   return useQuery<boolean>({
     queryKey: ["usuario-permissoes", usuarioId, "tem-permissao", permissao],
     queryFn: async () => {
-      const response = await api.get<boolean>(`/rbac/usuario/${usuarioId}/tem-permissao/${permissao}`);
-      return response.data;
+      const response = await api.get<ApiResponse<boolean>>(`/rbac/usuario/${usuarioId}/tem-permissao/${permissao}`);
+      return response.data.data;
     },
     enabled: !!usuarioId && !!permissao,
   });
